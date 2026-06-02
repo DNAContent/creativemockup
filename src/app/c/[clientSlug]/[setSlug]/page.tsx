@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import type { SetStatus } from "@/lib/types";
 import Gate from "./Gate";
 import PortalClient, { type PortalCreative } from "./PortalClient";
 
@@ -61,7 +62,9 @@ export default async function ReviewPortal(props: {
 
   return (
     <PortalClient
+      setId={set.id}
       setName={set.name}
+      setStatus={set.status as SetStatus}
       notes={set.notes}
       client={client}
       caps={{

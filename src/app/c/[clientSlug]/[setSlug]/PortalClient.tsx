@@ -7,7 +7,13 @@ import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/Toast";
 import MockupCanvas, { ZoomBar } from "@/components/MockupCanvas";
 import ActionButton from "@/components/ActionButton";
-import type { Creative, ReviewComment } from "@/lib/types";
+import {
+  SET_STATUS_LABELS,
+  SET_STATUS_PILL,
+  type Creative,
+  type ReviewComment,
+  type SetStatus,
+} from "@/lib/types";
 
 export type PortalCreative = Creative & { comments: ReviewComment[] };
 
@@ -15,14 +21,18 @@ const TARGETS = ["General", "Copy", "Visual", "Headline", "CTA"] as const;
 const supabase = createClient();
 
 export default function PortalClient({
+  setId,
   setName,
+  setStatus,
   notes,
   client,
   caps: capsProp,
   userEmail,
   initialCreatives,
 }: {
+  setId: string;
   setName: string;
+  setStatus: SetStatus;
   notes: string | null;
   client: { name: string; logo_url: string | null };
   caps: { comment: boolean; approve: boolean; edit: boolean };
@@ -85,7 +95,8 @@ export default function PortalClient({
     if (realtimeSetId) {
       ch.on("postgres_changes", { event: "*", schema: "public", table: "ads", filter: `set_id=eq.${realtimeSetId}` }, bump);
     }
-    ch.on("postgres_changes", { event: "*", schema: "public", table: "comments" }, bump)
+    ch.on("postgres_changes", { event: "*", schema: "public", table: "creative_sets", filter: `id=eq.${setId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "replies" }, bump);
     supabase.auth.getSession().then(({ data }) => {
       if (cancelled) return;
@@ -151,6 +162,20 @@ export default function PortalClient({
     refresh();
   }
 
+  async function changeSetStatus(next: SetStatus) {
+    if (next === setStatus) return;
+    const { error } = await supabase.rpc("client_set_status", {
+      p_set_id: setId,
+      p_status: next,
+    });
+    if (error) return toast(error.message, "error");
+    toast(
+      next === "approved" ? "Set approved." : "Set marked for review.",
+      "success",
+    );
+    refresh();
+  }
+
   const openComments = selected?.comments.filter((c) => !c.resolved).length ?? 0;
 
   return (
@@ -175,6 +200,38 @@ export default function PortalClient({
       <div className="flex min-h-0 flex-1 flex-col text-sm lg:flex-row">
         {/* LEFT — creatives */}
         <aside className="flex w-full shrink-0 flex-col border-b border-neutral-800 bg-neutral-950 lg:w-60 lg:border-b-0 lg:border-r">
+          <div className="border-b border-neutral-800 px-4 py-3">
+            <div className="mb-1.5 flex items-center gap-2">
+              <span className="text-[11px] uppercase tracking-wide text-neutral-500">
+                Status
+              </span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${SET_STATUS_PILL[setStatus]}`}
+              >
+                {SET_STATUS_LABELS[setStatus]}
+              </span>
+            </div>
+            {caps.approve && (
+              <div className="flex gap-1.5">
+                <ActionButton
+                  onClick={() => changeSetStatus("approved")}
+                  disabled={setStatus === "approved"}
+                  busyLabel="…"
+                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-green-600 px-2 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Approve
+                </ActionButton>
+                <ActionButton
+                  onClick={() => changeSetStatus("needs_review")}
+                  disabled={setStatus === "needs_review"}
+                  busyLabel="…"
+                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-neutral-700 px-2 py-1.5 text-xs font-medium text-neutral-200 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Needs review
+                </ActionButton>
+              </div>
+            )}
+          </div>
           {notes && (
             <div className="border-b border-neutral-800 px-4 py-3 text-xs text-neutral-400">
               {notes}
