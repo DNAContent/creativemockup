@@ -12,29 +12,27 @@ export default async function Dashboard() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  let { data: membership } = await supabase
+  const { data: membership } = await supabase
     .from("agency_members")
-    .select("agency_id, role, agencies(name)")
+    .select("agency_id, agencies(name)")
     .limit(1)
     .maybeSingle();
-  // Single-agency mode: auto-enroll the user if their email is authorized
-  // staff (master or on the allowlist). See db/08_roles_and_staff.sql.
+
+  let agencyName = (membership?.agencies as { name?: string } | null)?.name;
+
+  // Not enrolled yet? Single-agency auto-enroll, gated by the staff allowlist
+  // (master or invited teammate). We trust join_default_agency's RETURN VALUE —
+  // it performs the insert and returns the agency in one SECURITY DEFINER txn.
+  // Re-selecting agency_members here instead can miss the row we just inserted
+  // (read-after-write across requests) and wrongly bounce a brand-new teammate
+  // to /c. A null return means the caller isn't staff → send them to /c.
   if (!membership) {
-    await supabase.rpc("join_default_agency");
-    ({ data: membership } = await supabase
-      .from("agency_members")
-      .select("agency_id, role, agencies(name)")
-      .limit(1)
-      .maybeSingle());
-  }
-  // Signed in but not agency staff → they're a client (or invited contact), so
-  // send them to their client review dashboard rather than a dead-end.
-  if (!membership) {
-    redirect("/c");
+    const { data: joined } = await supabase.rpc("join_default_agency");
+    if (!joined) redirect("/c");
+    agencyName = (joined as { name?: string } | null)?.name ?? agencyName;
   }
 
-  const agencyName =
-    (membership.agencies as { name?: string } | null)?.name ?? "Your agency";
+  const displayAgency = agencyName ?? "Your agency";
 
   const { data: clients } = await supabase
     .from("clients")
@@ -48,7 +46,7 @@ export default async function Dashboard() {
         title={
           <span className="flex items-center gap-2">
             <HelixLogo className="text-indigo-400" />
-            {agencyName}
+            {displayAgency}
           </span>
         }
         right={
