@@ -1,0 +1,19 @@
+# Netlify deploy config for the Next.js 16 app.
+# The Next.js runtime plugin handles SSR, middleware, and route handlers — do
+# not set a manual `publish` dir; the plugin wires it up.
+
+[build]
+  command = "npm run build"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# If this app lives in a subdirectory of the repo (it does: mockup/web), set the
+# base directory in the Netlify UI (Site settings -> Build & deploy -> Base
+# directory = "mockup/web") OR uncomment below if netlify.toml is at the repo root:
+# [build]
+#   base = "mockup/web"
+
+# Remember to add the env vars in the Netlify UI (Site settings -> Environment):
+#   NEXT_PUBLIC_SUPABASE_URL
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY

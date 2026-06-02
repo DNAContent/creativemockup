@@ -1,8 +1,9 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 @theme inline {
@@ -12,15 +13,75 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Inputs carry no bg utility, so default them to the dark theme here (otherwise
+   the browser renders them white). Borders/text are set per-element. */
+input,
+textarea,
+select {
+  background-color: #0a0a0a;
+  color: var(--foreground);
+}
+input::placeholder,
+textarea::placeholder {
+  color: #6b7280;
+}
+
+/* Secondary buttons rely on borders + hover and have no bg utility; keep their
+   base transparent so the browser's light button face doesn't show. Primary
+   buttons set their own bg-* utility, which wins over this. */
+button {
+  background-color: transparent;
+}
+
+/* ---- Motion -------------------------------------------------------------- */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+.animate-fade-up { animation: fade-up 0.28s ease-out both; }
+.animate-fade-in { animation: fade-in 0.22s ease-out both; }
+.animate-scale-in { animation: scale-in 0.18s ease-out both; }
+.animate-toast { animation: toast-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+/* Microinteractions: smooth hover/press on interactive controls. */
+button,
+a,
+select,
+[role="button"] {
+  transition: background-color 0.14s ease, border-color 0.14s ease,
+    color 0.14s ease, opacity 0.14s ease, transform 0.1s ease,
+    box-shadow 0.14s ease;
+}
+button:not(:disabled):active {
+  transform: translateY(0.5px);
+}
+
+/* Respect users who prefer less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
