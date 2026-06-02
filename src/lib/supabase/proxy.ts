@@ -3,8 +3,11 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // Public routes that do NOT require an agency login. /c is the client review
 // portal (gated by its own magic-link allowlist). /auth handles magic-link
-// callbacks. /login is the staff auth page.
-const PUBLIC_PREFIXES = ["/login", "/c", "/auth"];
+// callbacks. /login is the staff auth page. /api routes authenticate
+// themselves (e.g. the notify webhook checks a shared secret) and must NEVER be
+// redirected to /login — an unauthenticated POST from the DB would otherwise be
+// bounced as a 307 and never run.
+const PUBLIC_PREFIXES = ["/login", "/c", "/auth", "/api"];
 
 // Refreshes the Supabase auth session on every request and gates private
 // routes. Returns the response with refreshed cookies attached. Called from
