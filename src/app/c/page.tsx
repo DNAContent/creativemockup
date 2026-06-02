@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
-import Link from "next/link";
 import AppHeader from "@/components/AppHeader";
-import { SET_STATUS_LABELS, type SetStatus } from "@/lib/types";
+import { HelixLogo, LogoutIcon, MailIcon } from "@/components/icons";
+import type { SetStatus } from "@/lib/types";
+import ReviewsDashboard, { type ReviewGroup } from "./ReviewsDashboard";
 import { clientSignIn, clientSignOut } from "./actions";
 
 type SetRow = {
@@ -13,13 +14,6 @@ type SetRow = {
   status: SetStatus;
   due_date: string | null;
   role: string;
-};
-
-type Group = {
-  name: string;
-  slug: string;
-  logo: string | null;
-  sets: SetRow[];
 };
 
 export default async function ClientHome(props: {
@@ -35,7 +29,9 @@ export default async function ClientHome(props: {
   if (!user) {
     return (
       <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-6 py-16">
-        <h1 className="mb-1 text-xl font-semibold">Your reviews</h1>
+        <h1 className="mb-1 flex items-center gap-2 text-xl font-semibold">
+          <HelixLogo className="text-indigo-400" /> Your reviews
+        </h1>
         <p className="mb-6 text-sm text-neutral-400">
           Sign in with the email your agency invited.
         </p>
@@ -62,8 +58,9 @@ export default async function ClientHome(props: {
           )}
           <button
             formAction={clientSignIn}
-            className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
           >
+            <MailIcon className="h-4 w-4" />
             Email me a sign-in link
           </button>
         </form>
@@ -75,12 +72,17 @@ export default async function ClientHome(props: {
   const rows = (data as SetRow[]) ?? [];
 
   // Group sets under their client.
-  const groups = new Map<string, Group>();
+  const groups = new Map<string, ReviewGroup>();
   for (const r of rows) {
     const g =
       groups.get(r.client_slug) ??
-      ({ name: r.client_name, slug: r.client_slug, logo: r.client_logo, sets: [] } as Group);
-    g.sets.push(r);
+      ({ name: r.client_name, slug: r.client_slug, logo: r.client_logo, sets: [] } as ReviewGroup);
+    g.sets.push({
+      set_name: r.set_name,
+      set_slug: r.set_slug,
+      status: r.status,
+      due_date: r.due_date,
+    });
     groups.set(r.client_slug, g);
   }
   const clientGroups = [...groups.values()];
@@ -88,66 +90,33 @@ export default async function ClientHome(props: {
   return (
     <div className="flex-1">
       <AppHeader
-        title="Your reviews"
+        title={
+          <span className="flex items-center gap-2">
+            <HelixLogo className="text-indigo-400" /> Your reviews
+          </span>
+        }
         right={
           <>
             <span className="hidden sm:inline">{user.email}</span>
             <form action={clientSignOut}>
-              <button className="rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-200 hover:bg-neutral-800">
-                Sign out
+              <button className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-200 hover:bg-neutral-800">
+                <LogoutIcon className="h-3.5 w-3.5" /> Sign out
               </button>
             </form>
           </>
         }
       />
 
-      <main className="mx-auto w-full max-w-3xl px-6 py-6">
-        {clientGroups.length === 0 ? (
+      {clientGroups.length === 0 ? (
+        <main className="mx-auto w-full max-w-3xl px-6 py-6">
           <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-6 text-sm text-neutral-400">
             No reviews have been shared with {user.email} yet. Your agency will
             add you when something&apos;s ready.
           </div>
-        ) : (
-          clientGroups.map((g) => (
-            <div
-              key={g.slug}
-              className="mb-4 rounded-xl border border-neutral-800 bg-neutral-900"
-            >
-              <div className="flex items-center gap-2 border-b border-neutral-800 px-4 py-3">
-                {g.logo && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={g.logo}
-                    alt=""
-                    className="h-6 w-6 rounded object-cover"
-                  />
-                )}
-                <h2 className="text-sm font-semibold">{g.name}</h2>
-              </div>
-              <div className="p-2">
-                {g.sets.map((s) => (
-                  <Link
-                    key={s.set_slug}
-                    href={`/c/${g.slug}/${s.set_slug}`}
-                    className="flex items-center justify-between gap-2 rounded-lg px-2 py-2.5 hover:bg-neutral-800"
-                  >
-                    <span className="min-w-0 text-sm">
-                      <span className="font-medium">{s.set_name}</span>{" "}
-                      <span className="rounded-full bg-indigo-500/15 px-2 py-0.5 text-[11px] text-indigo-300">
-                        {SET_STATUS_LABELS[s.status]}
-                      </span>
-                      {s.due_date && (
-                        <span className="text-neutral-500"> · due {s.due_date}</span>
-                      )}
-                    </span>
-                    <span className="text-xs text-neutral-500">Open →</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ))
-        )}
-      </main>
+        </main>
+      ) : (
+        <ReviewsDashboard groups={clientGroups} />
+      )}
     </div>
   );
 }

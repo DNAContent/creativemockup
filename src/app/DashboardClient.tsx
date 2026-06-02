@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useToast } from "@/components/Toast";
 import ViewToggle, { useViewMode } from "@/components/ViewToggle";
+import { PlusIcon } from "@/components/icons";
 import type { SetStatus } from "@/lib/types";
 import { addClient } from "./actions";
 
@@ -37,9 +38,10 @@ export default function DashboardClient({ clients }: { clients: HomeClient[] }) 
           {clients.length > 0 && <ViewToggle value={view} onChange={setView} />}
           <button
             onClick={() => setOpen(true)}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
           >
-            + Add client
+            <PlusIcon className="h-4 w-4" />
+            Add client
           </button>
         </div>
       </div>

@@ -34,7 +34,8 @@ export default async function ClientDashboard(props: {
           Sign in with the email your agency invited.
         </p>
         <form className="space-y-3 rounded-xl border border-neutral-800 bg-neutral-900 p-5">
-          <input type="hidden" name="next" value={`/c/${clientSlug}`} />
+          {/* Funnel all client sign-ins to the unified /c dashboard. */}
+          <input type="hidden" name="next" value="/c" />
           <label className="block text-xs text-neutral-500">
             Email
             <input

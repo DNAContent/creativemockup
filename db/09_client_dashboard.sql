@@ -24,7 +24,7 @@ security definer
 stable
 set search_path = public
 as $$
-  select c.name, c.slug, c.logo_url,
+  select c.name, c.slug, coalesce(c.brand_logo, c.logo_url),
          s.name, s.slug, s.status, s.due_date, cc.role
   from public.client_contacts cc
   join public.clients c       on c.id = cc.client_id

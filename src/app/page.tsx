@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { signOut } from "./login/actions";
 import AppHeader, { HeaderLink } from "@/components/AppHeader";
+import { HelixLogo, LogoutIcon } from "@/components/icons";
 import DashboardClient, { type HomeClient } from "./DashboardClient";
 
 export default async function Dashboard() {
@@ -26,22 +27,10 @@ export default async function Dashboard() {
       .limit(1)
       .maybeSingle());
   }
-  // Signed in but not authorized staff — the join RPC didn't enroll them.
+  // Signed in but not agency staff → they're a client (or invited contact), so
+  // send them to their client review dashboard rather than a dead-end.
   if (!membership) {
-    return (
-      <main className="mx-auto w-full max-w-md flex-1 px-6 py-16">
-        <h1 className="mb-1 text-xl font-semibold">No access yet</h1>
-        <p className="mb-6 text-sm text-neutral-500">
-          <strong>{user.email}</strong> isn&apos;t authorized for this workspace.
-          Ask an owner to add your email under Team members.
-        </p>
-        <form action={signOut}>
-          <button className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm hover:bg-neutral-800">
-            Sign out
-          </button>
-        </form>
-      </main>
-    );
+    redirect("/c");
   }
 
   const agencyName =
@@ -56,13 +45,19 @@ export default async function Dashboard() {
   return (
     <div className="flex-1">
       <AppHeader
-        title={`📐 ${agencyName}`}
+        title={
+          <span className="flex items-center gap-2">
+            <HelixLogo className="text-indigo-400" />
+            {agencyName}
+          </span>
+        }
         right={
           <>
             <HeaderLink href="/settings/team">Team &amp; access</HeaderLink>
             <span className="hidden sm:inline">{user.email}</span>
             <form action={signOut}>
-              <button className="rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-200 hover:bg-neutral-800">
+              <button className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-200 hover:bg-neutral-800">
+                <LogoutIcon className="h-3.5 w-3.5" />
                 Sign out
               </button>
             </form>

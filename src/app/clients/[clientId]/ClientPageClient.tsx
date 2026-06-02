@@ -6,6 +6,7 @@ import Link from "next/link";
 import CopyLink from "@/components/CopyLink";
 import { useToast } from "@/components/Toast";
 import ViewToggle, { useViewMode } from "@/components/ViewToggle";
+import { EditPageIcon, PlusIcon } from "@/components/icons";
 import {
   DEFAULT_CONTACT_CAPS,
   SET_STATUS_LABELS,
@@ -323,9 +324,10 @@ function SetsSection({
           <button
             onClick={add}
             disabled={busy}
-            className="rounded-lg border border-neutral-700 px-3 py-2 text-sm font-medium text-indigo-300 hover:bg-neutral-800 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-2 text-sm font-medium text-indigo-300 hover:bg-neutral-800 disabled:opacity-50"
           >
-            {busy ? "Adding…" : "+ Set"}
+            <PlusIcon className="h-3.5 w-3.5" />
+            {busy ? "Adding…" : "Set"}
           </button>
         </div>
       </div>
@@ -428,8 +430,9 @@ function SetRow({
     <div className="flex flex-wrap items-center gap-2">
       <Link
         href={`/editor/${set.id}`}
-        className="rounded-lg border border-neutral-700 px-3 py-1.5 text-xs font-medium text-indigo-300 hover:bg-neutral-800"
+        className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs font-medium text-indigo-300 hover:bg-neutral-800"
       >
+        <EditPageIcon className="h-3.5 w-3.5" />
         Open editor
       </Link>
       <CopyLink clientSlug={clientSlug} setSlug={set.slug} />

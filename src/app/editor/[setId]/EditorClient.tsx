@@ -6,6 +6,7 @@ import { useToast } from "@/components/Toast";
 import { createClient } from "@/lib/supabase/client";
 import CopyLink from "@/components/CopyLink";
 import MockupCanvas, { ZoomBar } from "@/components/MockupCanvas";
+import { PlusIcon, Spinner } from "@/components/icons";
 import {
   CREATIVE_FORMATS,
   SET_STATUS_LABELS,
@@ -353,9 +354,10 @@ export default function EditorClient({
           <button
             onClick={onAdd}
             disabled={acting}
-            className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
           >
-            {acting ? "Working…" : "+ Add creative"}
+            {acting ? <Spinner className="h-3.5 w-3.5" /> : <PlusIcon className="h-3.5 w-3.5" />}
+            {acting ? "Working…" : "Add creative"}
           </button>
         </div>
       </aside>
