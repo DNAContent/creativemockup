@@ -73,7 +73,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
 
       {/* Toasts */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex flex-col items-center gap-2 px-4">
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex flex-col items-center gap-2 px-4"
+      >
         {toasts.map((t) => (
           <div
             key={t.id}
@@ -94,16 +98,16 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             className="animate-scale-in w-full max-w-sm rounded-xl border border-neutral-800 bg-neutral-900 p-5 shadow-xl"
           >
             <p className="text-sm text-neutral-200">{confirmState.message}</p>
-            <div className="mt-4 flex justify-end gap-2">
+            <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 onClick={() => settle(false)}
-                className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm hover:bg-neutral-800"
+                className="rounded-lg border border-neutral-700 px-4 py-2.5 text-sm hover:bg-neutral-800 sm:py-1.5"
               >
                 Cancel
               </button>
               <button
                 onClick={() => settle(true)}
-                className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+                className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 sm:py-1.5"
               >
                 Confirm
               </button>

@@ -497,12 +497,12 @@ function CommentBlock({
         </div>
       ))}
       {caps.comment && (
-        <div className="mt-1.5 flex gap-2">
+        <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Reply…"
-            className="flex-1 rounded-lg border border-neutral-700 px-3 py-1.5 text-sm text-neutral-100"
+            className="min-w-0 flex-1 rounded-lg border border-neutral-700 px-3 py-1.5 text-sm text-neutral-100"
           />
           <ActionButton
             onClick={async () => {

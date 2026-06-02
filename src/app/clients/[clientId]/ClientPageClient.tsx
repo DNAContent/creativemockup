@@ -382,7 +382,7 @@ function SetRow({
   if (editing) {
     return (
       <div className="flex flex-wrap items-end gap-2 border-t border-neutral-800 py-2.5 first:border-t-0">
-        <label className="min-w-40 flex-1 text-xs text-neutral-500">
+        <label className="min-w-0 flex-1 text-xs text-neutral-500 sm:min-w-40">
           Set name
           <input
             value={name}
@@ -525,7 +525,7 @@ function ContactsSection({
               onChange={(e) => setEmail(e.target.value)}
               type="email"
               placeholder="client@email.com"
-              className="min-w-48 flex-1 rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-100"
+              className="min-w-0 flex-1 rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-100 sm:min-w-48"
             />
             <button
               onClick={add}
@@ -575,7 +575,7 @@ function ContactRow({
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-t border-neutral-800 py-2.5 text-sm first:border-t-0">
-      <span className="min-w-32 flex-1 truncate">
+      <span className="min-w-0 flex-1 truncate">
         {contact.email}
         {contact.name && <span className="text-neutral-500"> · {contact.name}</span>}
       </span>

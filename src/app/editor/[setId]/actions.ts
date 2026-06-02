@@ -154,3 +154,24 @@ export async function setCommentResolved(
   revalidateEditor(setId);
   return {};
 }
+
+// Staff reply to a client comment. The author is the staff member's email so
+// the reply trigger (db/14) can email the original commenter a link to the set.
+export async function addReply(
+  setId: string,
+  commentId: string,
+  text: string,
+) {
+  const body = text.trim();
+  if (!body) return { error: "Reply can't be empty." };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { error } = await supabase
+    .from("replies")
+    .insert({ comment_id: commentId, author: user?.email ?? "Agency", text: body });
+  if (error) return { error: error.message };
+  revalidateEditor(setId);
+  return {};
+}

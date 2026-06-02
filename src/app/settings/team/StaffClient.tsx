@@ -80,7 +80,7 @@ export default function StaffClient({ staff }: { staff: StaffMember[] }) {
             onChange={(e) => setEmail(e.target.value)}
             type="email"
             placeholder="teammate@digitalnicheagency.com"
-            className="min-w-56 flex-1 rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-100"
+            className="min-w-0 flex-1 rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-100 sm:min-w-56"
           />
           <select
             value={role}

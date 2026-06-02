@@ -17,6 +17,7 @@ import {
   type SetStatus,
 } from "@/lib/types";
 import {
+  addReply,
   createCreative,
   deleteCreative,
   renameSet,
@@ -318,11 +319,11 @@ export default function EditorClient({
                   className={`h-2 w-2 shrink-0 rounded-full ${statusDot(c.status)}`}
                   title={c.status}
                 />
-                <div className="flex flex-col opacity-0 group-hover:opacity-100">
+                <div className="flex flex-col opacity-100 lg:opacity-0 lg:group-hover:opacity-100">
                   <button
                     onClick={() => move(i, -1)}
                     disabled={i === 0}
-                    className="text-[10px] leading-3 text-neutral-500 hover:text-neutral-200 disabled:opacity-30"
+                    className="px-1.5 py-0.5 text-xs leading-none text-neutral-500 hover:text-neutral-200 disabled:opacity-30"
                     aria-label="Move up"
                   >
                     ▲
@@ -330,7 +331,7 @@ export default function EditorClient({
                   <button
                     onClick={() => move(i, 1)}
                     disabled={i === creatives.length - 1}
-                    className="text-[10px] leading-3 text-neutral-500 hover:text-neutral-200 disabled:opacity-30"
+                    className="px-1.5 py-0.5 text-xs leading-none text-neutral-500 hover:text-neutral-200 disabled:opacity-30"
                     aria-label="Move down"
                   >
                     ▼
@@ -551,12 +552,21 @@ function CommentRow({
 }) {
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
+  const [replyText, setReplyText] = useState("");
   async function toggle() {
     setBusy(true);
     const res = await setCommentResolved(setId, comment.id, !comment.resolved);
     setBusy(false);
     if (res.error) return toast(res.error, "error");
     toast(comment.resolved ? "Reopened." : "Resolved.", "success");
+    onChanged();
+  }
+  async function reply() {
+    if (!replyText.trim()) return;
+    const res = await addReply(setId, comment.id, replyText);
+    if (res.error) return toast(res.error, "error");
+    setReplyText("");
+    toast("Reply sent.", "success");
     onChanged();
   }
   return (
@@ -591,6 +601,24 @@ function CommentRow({
           <strong>{r.author}:</strong> {r.text}
         </div>
       ))}
+      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+        <input
+          value={replyText}
+          onChange={(e) => setReplyText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") reply();
+          }}
+          placeholder="Reply to the client…"
+          className="min-w-0 flex-1 rounded-lg border border-neutral-700 px-3 py-1.5 text-sm text-neutral-100"
+        />
+        <ActionButton
+          onClick={reply}
+          busyLabel="Sending…"
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs font-medium text-indigo-300 hover:bg-neutral-800 disabled:opacity-60"
+        >
+          Reply
+        </ActionButton>
+      </div>
     </div>
   );
 }

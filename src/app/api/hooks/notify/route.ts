@@ -60,6 +60,9 @@ export async function POST(req: NextRequest) {
       .select("email")
       .eq("client_id", event.client_id);
     await sendEmail({ to: (contacts ?? []).map((c) => c.email), msg });
+  } else if (event.type === "reply") {
+    // Client-facing: email just the person whose comment was replied to.
+    await sendEmail({ to: [event.recipient_email], msg });
   } else {
     // Internal: email the staff who opted in for this event type.
     const eFlag = staffEmailFlag(event);

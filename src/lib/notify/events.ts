@@ -38,6 +38,18 @@ export type NotifyEvent =
       client_slug: string;
       set_name: string;
       set_slug: string;
+    }
+  | {
+      type: "reply";
+      agency_id: string;
+      client_name: string;
+      client_slug: string;
+      set_name: string;
+      set_slug: string;
+      creative_name: string;
+      author: string;
+      recipient_email: string;
+      text: string;
     };
 
 // Which per-agency Slack toggle column gates this event (null = not a Slack event).
@@ -101,6 +113,12 @@ export function eventSummary(e: NotifyEvent, baseUrl: string): Message {
       return {
         title: `${e.set_name} is ready for your review`,
         body: `${e.client_name}, a new set of creatives is ready for your review and approval.`,
+        url: `${baseUrl}/c/${e.client_slug}/${e.set_slug}`,
+      };
+    case "reply":
+      return {
+        title: `New reply on ${e.set_name}`,
+        body: `${e.author} replied to your comment on “${e.creative_name}”: ${e.text}`,
         url: `${baseUrl}/c/${e.client_slug}/${e.set_slug}`,
       };
   }
