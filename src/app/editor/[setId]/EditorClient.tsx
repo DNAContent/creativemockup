@@ -11,6 +11,8 @@ import ActionButton from "@/components/ActionButton";
 import { PlusIcon, Spinner } from "@/components/icons";
 import {
   CREATIVE_FORMATS,
+  DEFAULT_FORMAT_FIELDS,
+  FORMAT_FIELDS,
   SET_STATUS_LABELS,
   type Creative,
   type CreativeStatus,
@@ -498,7 +500,10 @@ function EditPanel({
   field: <K extends keyof EditorCreative>(k: K, v: EditorCreative[K]) => void;
   setHl: (f: string | null) => void;
 }) {
-  const isEmail = draft.format === "email";
+  // The inputs to show depend on the format — only the fields this format
+  // actually renders (see FORMAT_FIELDS). Switching format never deletes data;
+  // hidden fields keep their values for when you switch back.
+  const fields = FORMAT_FIELDS[draft.format] ?? DEFAULT_FORMAT_FIELDS;
   // Highlight the matching mockup element while a field is focused.
   const hl = (f: string) => ({
     onFocus: () => setHl(f),
@@ -524,24 +529,26 @@ function EditPanel({
         ]}
       />
 
-      {isEmail ? (
-        <>
-          <Text label="Email subject" value={draft.email_subject} onChange={(v) => field("email_subject", v)} {...hl("email_subject")} />
-          <Text label="Email preheader" value={draft.email_preheader} onChange={(v) => field("email_preheader", v)} {...hl("email_preheader")} />
-          <Area label="Email body" value={draft.email_body} onChange={(v) => field("email_body", v)} {...hl("email_body")} />
-        </>
-      ) : (
-        <>
-          <Text label="Headline" value={draft.headline} onChange={(v) => field("headline", v)} {...hl("headline")} />
-          <Area label="Copy" value={draft.copy} onChange={(v) => field("copy", v)} {...hl("copy")} />
-          <Text label="Description" value={draft.description} onChange={(v) => field("description", v)} {...hl("description")} />
-          <Text label="CTA" value={draft.cta} onChange={(v) => field("cta", v)} {...hl("cta")} />
-        </>
+      {fields.map((f) =>
+        f.area ? (
+          <Area
+            key={f.key}
+            label={f.label}
+            value={draft[f.key]}
+            onChange={(v) => field(f.key, v)}
+            rows={f.big ? 10 : 3}
+            {...hl(f.key)}
+          />
+        ) : (
+          <Text
+            key={f.key}
+            label={f.label}
+            value={draft[f.key]}
+            onChange={(v) => field(f.key, v)}
+            {...hl(f.key)}
+          />
+        ),
       )}
-
-      <Text label="Aspect ratio" value={draft.aspect_ratio} onChange={(v) => field("aspect_ratio", v)} />
-      <Text label="Media image (URL)" value={draft.media_img} onChange={(v) => field("media_img", v)} {...hl("media_img")} />
-      <Text label="Media video URL" value={draft.media_video} onChange={(v) => field("media_video", v)} {...hl("media_video")} />
     </div>
   );
 }
@@ -711,12 +718,14 @@ function Area({
   onChange,
   onFocus,
   onBlur,
+  rows = 3,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   onFocus?: () => void;
   onBlur?: () => void;
+  rows?: number;
 }) {
   return (
     <label className="block text-xs text-neutral-400">
@@ -726,8 +735,8 @@ function Area({
         onChange={(e) => onChange(e.target.value)}
         onFocus={onFocus}
         onBlur={onBlur}
-        rows={3}
-        className="mt-1 w-full rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-100"
+        rows={rows}
+        className="mt-1 w-full rounded-lg border border-neutral-700 px-3 py-2 text-sm leading-relaxed text-neutral-100"
       />
     </label>
   );

@@ -133,6 +133,101 @@ export const CREATIVE_FORMATS: { value: string; label: string }[] = [
   { value: "display-mobile", label: "Display — Mobile Banner" },
   { value: "native-infeed", label: "Native — In-Feed" },
   { value: "native-widget", label: "Native — Widget" },
+  { value: "blog", label: "Blog Post" },
+];
+
+// Which editable fields each format actually uses. Drives the editor form so it
+// only shows the inputs that format renders (a FB post has no headline/CTA; a
+// blog has a long article body) and stays in sync with renderMockup.ts.
+export type CreativeFieldKey =
+  | "copy"
+  | "headline"
+  | "description"
+  | "cta"
+  | "email_subject"
+  | "email_preheader"
+  | "email_body"
+  | "media_img"
+  | "media_video"
+  | "aspect_ratio";
+
+export type CreativeFieldSpec = {
+  key: CreativeFieldKey;
+  label: string;
+  area?: boolean; // render a textarea
+  big?: boolean; // taller textarea, for long-form writing
+};
+
+// Reusable field specs (labels follow common ad-platform wording).
+const FLD = {
+  copy: { key: "copy", label: "Primary text", area: true },
+  headline: { key: "headline", label: "Headline" },
+  description: { key: "description", label: "Description" },
+  cta: { key: "cta", label: "Call to action" },
+  img: { key: "media_img", label: "Image URL" },
+  video: { key: "media_video", label: "Video URL" },
+  aspect: { key: "aspect_ratio", label: "Aspect ratio (e.g. 1:1, 16:9)" },
+} satisfies Record<string, CreativeFieldSpec>;
+
+export const FORMAT_FIELDS: Record<string, CreativeFieldSpec[]> = {
+  // Facebook
+  "fb-post": [FLD.copy, FLD.img, FLD.video, FLD.aspect],
+  "fb-feed": [FLD.copy, FLD.headline, FLD.description, FLD.cta, FLD.img, FLD.video, FLD.aspect],
+  "fb-story": [FLD.cta, FLD.img, FLD.video],
+  "fb-reels": [FLD.copy, FLD.cta, FLD.img, FLD.video],
+  // Instagram
+  "ig-post": [FLD.copy, { key: "headline", label: "Link label" }, FLD.img, FLD.video, FLD.aspect],
+  "ig-feed-ad": [FLD.copy, { key: "headline", label: "Link label" }, FLD.img, FLD.video, FLD.aspect],
+  "ig-story": [FLD.cta, FLD.img, FLD.video],
+  "ig-reels": [FLD.copy, FLD.cta, FLD.img, FLD.video],
+  // LinkedIn
+  "li-post": [FLD.copy, FLD.img, FLD.video, FLD.aspect],
+  linkedin: [FLD.copy, FLD.headline, FLD.description, FLD.cta, FLD.img, FLD.video, FLD.aspect],
+  "li-message": [
+    { key: "email_subject", label: "Subject" },
+    { key: "email_body", label: "Message", area: true, big: true },
+    FLD.cta,
+  ],
+  // Email
+  email: [
+    { key: "email_subject", label: "Subject line" },
+    { key: "email_preheader", label: "Preheader" },
+    FLD.headline,
+    FLD.description,
+    FLD.cta,
+    { key: "email_body", label: "Body", area: true, big: true },
+    FLD.img,
+    FLD.video,
+    FLD.aspect,
+  ],
+  // Display (fixed sizes — no aspect ratio)
+  "display-leaderboard": [FLD.headline, FLD.cta, FLD.img],
+  "display-mrec": [FLD.headline, FLD.cta, FLD.img],
+  "display-halfpage": [FLD.headline, FLD.cta, FLD.img],
+  "display-mobile": [FLD.headline, FLD.cta, FLD.img],
+  // Native
+  "native-infeed": [FLD.headline, FLD.description, FLD.cta, FLD.img, FLD.video, FLD.aspect],
+  "native-widget": [FLD.headline, FLD.img, FLD.video],
+  // Blog — long-form article with a thumbnail
+  blog: [
+    { key: "headline", label: "Title" },
+    { key: "description", label: "Subtitle / excerpt" },
+    { key: "media_img", label: "Thumbnail image URL" },
+    { key: "aspect_ratio", label: "Thumbnail aspect ratio (e.g. 16:9)" },
+    { key: "email_body", label: "Article body", area: true, big: true },
+    { key: "cta", label: "Button label (optional)" },
+  ],
+};
+
+// Any format not explicitly mapped falls back to the full field set.
+export const DEFAULT_FORMAT_FIELDS: CreativeFieldSpec[] = [
+  FLD.copy,
+  FLD.headline,
+  FLD.description,
+  FLD.cta,
+  FLD.img,
+  FLD.video,
+  FLD.aspect,
 ];
 
 // Shape returned when reading a set's creatives with their comment threads.

@@ -8,8 +8,8 @@ const CAPS: { key: keyof ContactCaps; label: string }[] = [
   { key: "can_edit", label: "Edit" },
 ];
 
-// Multi-select capabilities for a client contact. "View" is always granted, so
-// it's shown as a fixed chip; the rest are independent checkboxes.
+// Multi-select capabilities for a client contact. Every contact can view by
+// default, so "View" isn't shown — only the optional capabilities are toggles.
 export default function ContactCapsPicker({
   value,
   onChange,
@@ -21,12 +21,6 @@ export default function ContactCapsPicker({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <span
-        title="Every contact can view — always on"
-        className="rounded-full border border-indigo-500/40 bg-indigo-500/15 px-2.5 py-1 text-[11px] text-indigo-300"
-      >
-        ✓ View
-      </span>
       {CAPS.map(({ key, label }) => {
         const on = value[key];
         return (

@@ -337,6 +337,26 @@ export function renderMockup(ad: Ad): string {
       </div>
     </div></div>`;
 
+  } else if (fmt === 'blog') {
+    var thumbAR = (ad.aspectRatio || '16:9').replace(':', '/');
+    var thumbInner = mediaInner(ad);
+    var thumb = thumbInner
+      ? '<div style="aspect-ratio:' + thumbAR + ';position:relative;overflow:hidden;">' + thumbInner + '</div>'
+      : '<div style="aspect-ratio:' + thumbAR + ';display:flex;align-items:center;justify-content:center;background:#ececec;"><i class="ti ti-photo" style="font-size:34px;color:#bbb"></i></div>';
+    var blogBody = esc(ad.emailBody || '').replace(/\n\s*\n/g, '</p><p>').replace(/\n/g, '<br>');
+    return '<div id="zoom-target"><div style="width:640px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.14);font-family:Georgia,\'Times New Roman\',serif;color:#1a1a1a;">' +
+      thumb +
+      '<div style="padding:34px 40px 42px;">' +
+        '<div style="font-family:system-ui,sans-serif;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;margin-bottom:14px;">' + esc(name) + '</div>' +
+        '<h1 class="blog-headline" style="font-size:30px;line-height:1.2;margin:0 0 14px;font-weight:700;">' + esc(ad.headline || 'Your article title') + '</h1>' +
+        (ad.desc ? '<div class="blog-desc" style="font-size:17px;line-height:1.5;color:#555;font-style:italic;margin-bottom:24px;">' + esc(ad.desc) + '</div>' : '') +
+        (blogBody
+          ? '<div class="email-body-text" style="font-size:17px;line-height:1.78;"><p>' + blogBody + '</p></div>'
+          : '<div class="email-body-text" style="font-size:15px;color:#aaa;font-style:italic;">Write your article body…</div>') +
+        (ad.cta ? '<div style="margin-top:28px;"><a href="#" class="blog-cta" style="display:inline-block;background:#1a1a1a;color:#fff;font-family:system-ui,sans-serif;font-size:14px;font-weight:600;padding:11px 22px;border-radius:6px;text-decoration:none;">' + esc(ad.cta) + '</a></div>' : '') +
+      '</div>' +
+    '</div></div>';
+
   }
   return '<div style="padding:40px;color:#999;text-align:center;font:14px system-ui">No preview for this format.</div>';
 }
