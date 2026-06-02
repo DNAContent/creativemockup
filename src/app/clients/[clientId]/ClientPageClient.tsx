@@ -15,6 +15,7 @@ import {
   type SetStatus,
 } from "@/lib/types";
 import ContactCapsPicker from "@/components/ContactCapsPicker";
+import ActionButton from "@/components/ActionButton";
 import {
   addSet,
   deleteClient,
@@ -224,23 +225,25 @@ function DetailsCard({
         >
           Copy link
         </button>
-        <button
+        <ActionButton
           onClick={regenSlug}
           disabled={busy}
-          className="rounded-lg border border-neutral-700 px-2.5 py-1 hover:bg-neutral-800 disabled:opacity-50"
+          busyLabel="Regenerating…"
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-neutral-700 px-2.5 py-1 hover:bg-neutral-800 disabled:opacity-50"
         >
           Regenerate from name
-        </button>
+        </ActionButton>
       </div>
 
       <div className="mt-4 flex items-center justify-between">
-        <button
+        <ActionButton
           onClick={remove}
           disabled={busy}
-          className="rounded-lg border border-red-500/30 px-3 py-2 text-xs text-red-400 hover:bg-red-500/15 disabled:opacity-50"
+          busyLabel="Deleting…"
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-500/30 px-3 py-2 text-xs text-red-400 hover:bg-red-500/15 disabled:opacity-50"
         >
           Delete client
-        </button>
+        </ActionButton>
         <div className="flex gap-2">
           <button
             onClick={() => {
@@ -442,13 +445,14 @@ function SetRow({
       >
         Rename
       </button>
-      <button
+      <ActionButton
         onClick={remove}
         disabled={busy}
-        className="rounded-lg border border-red-500/30 px-2.5 py-1.5 text-xs text-red-400 hover:bg-red-500/15 disabled:opacity-50"
+        busyLabel="Deleting…"
+        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-500/30 px-2.5 py-1.5 text-xs text-red-400 hover:bg-red-500/15 disabled:opacity-50"
       >
         Delete
-      </button>
+      </ActionButton>
     </div>
   );
 
@@ -576,13 +580,14 @@ function ContactRow({
         {contact.name && <span className="text-neutral-500"> · {contact.name}</span>}
       </span>
       <ContactCapsPicker value={caps} onChange={changeCaps} disabled={busy} />
-      <button
+      <ActionButton
         onClick={remove}
         disabled={busy}
-        className="rounded-lg border border-red-500/30 px-2.5 py-1 text-xs text-red-400 hover:bg-red-500/15 disabled:opacity-50"
+        busyLabel="Removing…"
+        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-500/30 px-2.5 py-1 text-xs text-red-400 hover:bg-red-500/15 disabled:opacity-50"
       >
         Remove
-      </button>
+      </ActionButton>
     </div>
   );
 }

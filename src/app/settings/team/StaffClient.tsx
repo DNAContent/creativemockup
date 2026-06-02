@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
+import ActionButton from "@/components/ActionButton";
 import {
   addStaff,
   removeStaff,
@@ -92,13 +93,14 @@ export default function StaffClient({ staff }: { staff: StaffMember[] }) {
               </option>
             ))}
           </select>
-          <button
+          <ActionButton
             onClick={add}
             disabled={busy}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            busyLabel="Adding…"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
           >
             Add
-          </button>
+          </ActionButton>
         </div>
       </div>
     </section>
@@ -176,21 +178,23 @@ function StaffRow({
             ))}
           </select>
           {!member.joined && (
-            <button
+            <ActionButton
               onClick={resend}
               disabled={busy}
-              className="rounded-lg border border-neutral-700 px-2.5 py-1 text-xs hover:bg-neutral-800 disabled:opacity-50"
+              busyLabel="Sending…"
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-neutral-700 px-2.5 py-1 text-xs hover:bg-neutral-800 disabled:opacity-50"
             >
               Resend
-            </button>
+            </ActionButton>
           )}
-          <button
+          <ActionButton
             onClick={remove}
             disabled={busy}
-            className="rounded-lg border border-red-500/30 px-2.5 py-1 text-xs text-red-400 hover:bg-red-500/15 disabled:opacity-50"
+            busyLabel="Removing…"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-500/30 px-2.5 py-1 text-xs text-red-400 hover:bg-red-500/15 disabled:opacity-50"
           >
             Remove
-          </button>
+          </ActionButton>
         </>
       )}
     </div>

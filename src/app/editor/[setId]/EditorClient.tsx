@@ -6,6 +6,7 @@ import { useToast } from "@/components/Toast";
 import { createClient } from "@/lib/supabase/client";
 import CopyLink from "@/components/CopyLink";
 import MockupCanvas, { ZoomBar } from "@/components/MockupCanvas";
+import ActionButton from "@/components/ActionButton";
 import { PlusIcon, Spinner } from "@/components/icons";
 import {
   CREATIVE_FORMATS,
@@ -415,13 +416,14 @@ export default function EditorClient({
 
         {tab === "edit" && draft && selected && (
           <div className="flex items-center justify-between gap-2 border-t border-neutral-800 p-3">
-            <button
+            <ActionButton
               onClick={() => remove(selected.id)}
               disabled={acting}
-              className="rounded-lg border border-red-500/30 px-3 py-2 text-xs text-red-400 hover:bg-red-500/15 disabled:opacity-50"
+              busyLabel="Deleting…"
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-500/30 px-3 py-2 text-xs text-red-400 hover:bg-red-500/15 disabled:opacity-50"
             >
               Delete
-            </button>
+            </ActionButton>
             <span className="text-xs text-neutral-500">
               {saveState === "saving"
                 ? "Saving…"
@@ -572,13 +574,13 @@ function CommentRow({
             {comment.target}
           </span>
         </div>
-        <button
+        <ActionButton
           onClick={toggle}
           disabled={busy}
-          className="text-xs font-medium text-indigo-300 hover:underline disabled:opacity-50"
+          className="inline-flex items-center gap-1 text-xs font-medium text-indigo-300 hover:underline disabled:opacity-50"
         >
           {comment.resolved ? "Reopen" : "Resolve"}
-        </button>
+        </ActionButton>
       </div>
       <div className="text-sm">{comment.text}</div>
       {comment.replies.map((r) => (

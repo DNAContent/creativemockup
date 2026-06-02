@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/Toast";
 import MockupCanvas, { ZoomBar } from "@/components/MockupCanvas";
+import ActionButton from "@/components/ActionButton";
 import type { Creative, ReviewComment } from "@/lib/types";
 
 export type PortalCreative = Creative & { comments: ReviewComment[] };
@@ -268,32 +269,35 @@ export default function PortalClient({
                 <EditInput label="Headline" value={draft.headline} onChange={(v) => setDraft({ ...draft, headline: v })} />
                 <EditArea label="Copy" value={draft.copy} onChange={(v) => setDraft({ ...draft, copy: v })} />
                 <EditInput label="CTA" value={draft.cta} onChange={(v) => setDraft({ ...draft, cta: v })} />
-                <button
+                <ActionButton
                   onClick={saveEdit}
                   disabled={acting}
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                  busyLabel="Saving…"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  {acting ? "Saving…" : "Save changes"}
-                </button>
+                  Save changes
+                </ActionButton>
               </div>
             ) : (
               <>
                 {caps.approve && (
                   <div className="mb-3 flex gap-2">
-                    <button
+                    <ActionButton
                       onClick={() => approve(selected.id, "approved")}
                       disabled={acting}
-                      className="flex-1 rounded-lg bg-green-600 px-3 py-2 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                      busyLabel="Approving…"
+                      className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
                     >
                       Approve
-                    </button>
-                    <button
+                    </ActionButton>
+                    <ActionButton
                       onClick={() => approve(selected.id, "needs-edits")}
                       disabled={acting}
-                      className="flex-1 rounded-lg bg-amber-600 px-3 py-2 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+                      busyLabel="Requesting…"
+                      className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-amber-600 px-3 py-2 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
                     >
                       Request edits
-                    </button>
+                    </ActionButton>
                   </div>
                 )}
 
@@ -355,7 +359,7 @@ type Caps = { comment: boolean; approve: boolean; resolve: boolean; edit: boolea
 function AddComment({
   onSubmit,
 }: {
-  onSubmit: (text: string, target: string) => void;
+  onSubmit: (text: string, target: string) => Promise<unknown> | void;
 }) {
   const [text, setText] = useState("");
   const [target, setTarget] = useState<string>("General");
@@ -377,15 +381,17 @@ function AddComment({
         placeholder="Leave a comment…"
         className="w-full rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-100"
       />
-      <button
-        onClick={() => {
-          onSubmit(text, target);
+      <ActionButton
+        onClick={async () => {
+          if (!text.trim()) return;
+          await onSubmit(text, target);
           setText("");
         }}
-        className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
+        busyLabel="Posting…"
+        className="inline-flex items-center justify-center gap-1.5 self-start rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
       >
         Comment
-      </button>
+      </ActionButton>
     </>
   );
 }
@@ -398,8 +404,8 @@ function CommentBlock({
 }: {
   comment: ReviewComment;
   caps: Caps;
-  onReply: (commentId: string, text: string) => void;
-  onResolve: (commentId: string, resolved: boolean) => void;
+  onReply: (commentId: string, text: string) => Promise<unknown> | void;
+  onResolve: (commentId: string, resolved: boolean) => Promise<unknown> | void;
 }) {
   const [text, setText] = useState("");
   return (
@@ -416,12 +422,12 @@ function CommentBlock({
           </span>
         </div>
         {caps.resolve && (
-          <button
+          <ActionButton
             onClick={() => onResolve(comment.id, !comment.resolved)}
-            className="text-xs font-medium text-indigo-300 hover:underline"
+            className="inline-flex items-center gap-1 text-xs font-medium text-indigo-300 hover:underline disabled:opacity-60"
           >
             {comment.resolved ? "Reopen" : "Resolve"}
-          </button>
+          </ActionButton>
         )}
       </div>
       <div className="text-sm">{comment.text}</div>
@@ -441,15 +447,17 @@ function CommentBlock({
             placeholder="Reply…"
             className="flex-1 rounded-lg border border-neutral-700 px-3 py-1.5 text-sm text-neutral-100"
           />
-          <button
-            onClick={() => {
-              onReply(comment.id, text);
+          <ActionButton
+            onClick={async () => {
+              if (!text.trim()) return;
+              await onReply(comment.id, text);
               setText("");
             }}
-            className="rounded-lg border border-neutral-700 px-3 py-1.5 text-xs font-medium text-indigo-300 hover:bg-neutral-800"
+            busyLabel="…"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs font-medium text-indigo-300 hover:bg-neutral-800 disabled:opacity-60"
           >
             Reply
-          </button>
+          </ActionButton>
         </div>
       )}
     </div>
