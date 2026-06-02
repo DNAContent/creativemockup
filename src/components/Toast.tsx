@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 
 // Lightweight toast + confirm replacement for window.alert/confirm. Mounted
 // once via <ToastProvider> in the root layout; components call useToast().
@@ -48,6 +49,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   // Tracks the in-flight confirm's resolver so a second confirm() (or settle)
   // can release the previous awaiter instead of leaving it hung forever.
   const pendingResolve = useRef<((ok: boolean) => void) | null>(null);
+  const confirmRef = useFocusTrap<HTMLDivElement>(!!confirmState);
 
   const toast = useCallback((message: string, type: ToastType = "info") => {
     const id = ++idRef.current;
@@ -105,6 +107,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           onKeyDown={(e) => e.key === "Escape" && settle(false)}
         >
           <div
+            ref={confirmRef}
             role="alertdialog"
             aria-modal="true"
             aria-label="Confirm action"
@@ -122,7 +125,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 Cancel
               </button>
               <button
-                autoFocus
                 onClick={() => settle(true)}
                 className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 sm:py-1.5"
               >

@@ -7,6 +7,7 @@ import { useToast } from "@/components/Toast";
 import ViewToggle, { useViewMode } from "@/components/ViewToggle";
 import Logo from "@/components/Logo";
 import { PlusIcon } from "@/components/icons";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 import type { SetStatus } from "@/lib/types";
 import { addClient } from "./actions";
 
@@ -152,6 +153,7 @@ function AddClientModal({
   const [brandLogo, setBrandLogo] = useState("");
   const [logo, setLogo] = useState("");
   const [busy, setBusy] = useState(false);
+  const dialogRef = useFocusTrap<HTMLDivElement>(true);
 
   // Close on Escape.
   useEffect(() => {
@@ -176,6 +178,7 @@ function AddClientModal({
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="add-client-title"

@@ -68,10 +68,10 @@ export default async function ClientDashboard(props: {
     );
   }
 
-  const { data } = await supabase.rpc("my_creative_sets");
-  const sets = ((data as SetRow[]) ?? []).filter(
-    (r) => r.client_slug === clientSlug,
-  );
+  const { data } = await supabase.rpc("my_creative_sets", {
+    p_client_slug: clientSlug,
+  });
+  const sets = (data as SetRow[]) ?? [];
 
   if (sets.length === 0) {
     return (

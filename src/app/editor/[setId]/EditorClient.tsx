@@ -282,6 +282,7 @@ export default function EditorClient({
     if (res.error) {
       toast(res.error, "error");
       setCreatives(creatives);
+      refresh(); // re-pull the true server order (e.g. list changed elsewhere)
       return;
     }
     refresh();
