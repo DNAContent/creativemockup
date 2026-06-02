@@ -193,7 +193,7 @@ export function ZoomBar({
     <div className="flex items-center gap-1">
       <button
         onClick={() => step(-1)}
-        className="rounded border border-neutral-700 px-2 py-0.5 text-xs text-neutral-300 hover:bg-neutral-800"
+        className="rounded border border-neutral-700 px-2.5 py-1.5 text-xs text-neutral-300 hover:bg-neutral-800"
         aria-label="Zoom out"
       >
         −
@@ -207,7 +207,7 @@ export function ZoomBar({
       </button>
       <button
         onClick={() => step(1)}
-        className="rounded border border-neutral-700 px-2 py-0.5 text-xs text-neutral-300 hover:bg-neutral-800"
+        className="rounded border border-neutral-700 px-2.5 py-1.5 text-xs text-neutral-300 hover:bg-neutral-800"
         aria-label="Zoom in"
       >
         +

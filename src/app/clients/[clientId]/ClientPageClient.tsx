@@ -320,6 +320,7 @@ function SetsSection({
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
+            aria-label="New set name"
             placeholder="New set name"
             className="flex-1 rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-100"
           />
@@ -416,8 +417,8 @@ function SetRow({
           }}
           aria-label="Set name"
           title="Click to rename this set"
-          className="min-w-0 max-w-full rounded border border-transparent !bg-transparent px-1 py-0.5 text-sm font-medium text-neutral-100 hover:border-neutral-700 focus:border-neutral-700 focus:!bg-neutral-950 focus:outline-none"
-          style={{ width: `${Math.max(name.length + 1, 6)}ch` }}
+          className="min-w-0 max-w-full rounded border border-transparent !bg-transparent px-1 py-0.5 text-sm font-medium text-neutral-100 hover:border-neutral-700 focus:border-neutral-700 focus:!bg-neutral-950"
+          style={{ width: `min(${Math.max(name.length + 1, 6)}ch, 100%)` }}
         />
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] ${SET_STATUS_PILL[set.status]}`}
@@ -429,6 +430,7 @@ function SetRow({
         {dueEditing ? (
           <input
             type="date"
+            aria-label="Due date"
             defaultValue={set.due_date ?? ""}
             autoFocus
             onBlur={(e) => saveDue(e.target.value)}
@@ -448,7 +450,7 @@ function SetRow({
         ) : (
           <button
             onClick={() => setDueEditing(true)}
-            className="text-neutral-600 hover:text-neutral-300"
+            className="text-neutral-400 hover:text-neutral-200"
           >
             + due date
           </button>
@@ -460,7 +462,7 @@ function SetRow({
   const linkBtn =
     "inline-flex items-center gap-1.5 rounded-lg border border-neutral-700 px-2.5 py-1.5 text-xs font-medium hover:bg-neutral-800";
   const actions = (
-    <div className="flex shrink-0 items-center gap-1.5">
+    <div className="flex flex-wrap items-center justify-end gap-1.5">
       <Link
         href={`/editor/${set.id}`}
         title="Open editor"
@@ -561,6 +563,7 @@ function ContactsSection({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               type="email"
+              aria-label="Contact email"
               placeholder="client@email.com"
               className="min-w-0 flex-1 rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-100 sm:min-w-48"
             />

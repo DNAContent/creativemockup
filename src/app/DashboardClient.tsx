@@ -176,10 +176,15 @@ function AddClientModal({
       onClick={onClose}
     >
       <div
-        className="animate-scale-in w-full max-w-md rounded-xl border border-neutral-800 bg-neutral-900 p-5"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-client-title"
+        className="animate-scale-in max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-900 p-5"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="mb-1 text-sm font-semibold">Add a client</h2>
+        <h2 id="add-client-title" className="mb-1 text-sm font-semibold">
+          Add a client
+        </h2>
         <p className="mb-3 text-xs text-neutral-500">
           Brand name &amp; logo prefill every new creative&apos;s mockup.
         </p>

@@ -78,6 +78,15 @@ button:not(:disabled):active {
   transform: translateY(0.5px);
 }
 
+/* Visible keyboard focus for all interactive controls (mouse clicks don't show
+   it, thanks to :focus-visible). One global ring so nothing is left without an
+   indicator. */
+:focus-visible {
+  outline: 2px solid #818cf8;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 /* Tailwind v4 drops the UA `cursor: pointer` on buttons — restore it for all
    interactive controls, and show not-allowed on disabled ones. */
 button:not(:disabled),

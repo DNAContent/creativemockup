@@ -186,7 +186,15 @@ export async function addSet(
   if (adError) {
     // Roll back the empty set so we don't leave an orphan with no creatives,
     // and surface the real failure instead of silently "succeeding".
-    await supabase.from("creative_sets").delete().eq("id", setId);
+    const { error: rollbackErr } = await supabase
+      .from("creative_sets")
+      .delete()
+      .eq("id", setId);
+    if (rollbackErr) {
+      return {
+        error: `Couldn't create the first creative (${adError.message}). The empty set couldn't be removed either — delete "${clean}" manually.`,
+      };
+    }
     return { error: adError.message };
   }
 

@@ -10,7 +10,7 @@ export default function AppHeader({
 }) {
   return (
     <header className="flex items-center justify-between gap-3 border-b border-neutral-800 bg-neutral-900 px-4 py-3.5 text-white sm:px-6">
-      <div className="min-w-0 truncate text-base font-semibold">{title}</div>
+      <h1 className="min-w-0 truncate text-base font-semibold">{title}</h1>
       {right && (
         <div className="flex shrink-0 items-center gap-3 text-sm text-neutral-400">
           {right}

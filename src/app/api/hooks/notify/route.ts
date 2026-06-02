@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
     await sendEmail({ to: (contacts ?? []).map((c) => c.email), msg });
   } else if (event.type === "reply") {
     // Client-facing: email just the person whose comment was replied to.
-    await sendEmail({ to: [event.recipient_email], msg });
+    if (event.recipient_email) await sendEmail({ to: [event.recipient_email], msg });
   } else {
     // Internal: email the staff who opted in for this event type.
     const eFlag = staffEmailFlag(event);
@@ -72,12 +72,20 @@ export async function POST(req: NextRequest) {
         .select("user_id")
         .eq("agency_id", event.agency_id)
         .eq(eFlag, true);
-      const emails: string[] = [];
-      for (const p of prefs ?? []) {
-        const { data } = await admin.auth.admin.getUserById(p.user_id);
-        if (data.user?.email) emails.push(data.user.email);
-      }
-      await sendEmail({ to: emails, msg });
+      // Resolve emails in parallel and tolerate individual lookup failures —
+      // one slow/failed user must not stall (or sink) the whole notification.
+      const looked = await Promise.all(
+        (prefs ?? []).map(async (p) => {
+          try {
+            const { data } = await admin.auth.admin.getUserById(p.user_id);
+            return data.user?.email ?? null;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      const emails = looked.filter((e): e is string => !!e);
+      if (emails.length) await sendEmail({ to: emails, msg });
     }
   }
 

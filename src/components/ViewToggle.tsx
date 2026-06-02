@@ -34,7 +34,7 @@ export default function ViewToggle({
   onChange: (m: ViewMode) => void;
 }) {
   const btn = (active: boolean) =>
-    `grid h-7 w-7 place-items-center rounded-md ${
+    `grid h-8 w-8 place-items-center rounded-md ${
       active ? "bg-neutral-800 text-neutral-100" : "text-neutral-500 hover:text-neutral-300"
     }`;
   return (

@@ -452,6 +452,7 @@ function AddComment({
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={2}
+        aria-label="Leave a comment"
         placeholder="Leave a comment…"
         className="w-full rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-100"
       />
@@ -518,6 +519,7 @@ function CommentBlock({
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
+            aria-label="Reply"
             placeholder="Reply…"
             className="min-w-0 flex-1 rounded-lg border border-neutral-700 px-3 py-1.5 text-sm text-neutral-100"
           />

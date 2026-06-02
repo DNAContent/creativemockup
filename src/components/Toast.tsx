@@ -37,7 +37,7 @@ export function useToast(): ToastApi {
 
 const TONE: Record<ToastType, string> = {
   error: "border-red-500/30 bg-red-600 text-white",
-  success: "border-green-200 bg-green-600 text-white",
+  success: "border-green-500/30 bg-green-600 text-white",
   info: "border-neutral-700 bg-neutral-900 text-white",
 };
 
@@ -89,7 +89,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            role="status"
+            role={t.type === "error" ? "alert" : "status"}
+            aria-live={t.type === "error" ? "assertive" : "polite"}
             className={`animate-toast pointer-events-auto max-w-sm rounded-lg border px-4 py-2.5 text-sm shadow-lg ${TONE[t.type]}`}
           >
             {t.message}
@@ -99,13 +100,20 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
       {/* Confirm dialog */}
       {confirmState && (
-        <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+        <div
+          className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          onKeyDown={(e) => e.key === "Escape" && settle(false)}
+        >
           <div
             role="alertdialog"
             aria-modal="true"
+            aria-label="Confirm action"
+            aria-describedby="confirm-message"
             className="animate-scale-in w-full max-w-sm rounded-xl border border-neutral-800 bg-neutral-900 p-5 shadow-xl"
           >
-            <p className="text-sm text-neutral-200">{confirmState.message}</p>
+            <p id="confirm-message" className="text-sm text-neutral-200">
+              {confirmState.message}
+            </p>
             <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 onClick={() => settle(false)}
@@ -114,6 +122,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 Cancel
               </button>
               <button
+                autoFocus
                 onClick={() => settle(true)}
                 className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 sm:py-1.5"
               >

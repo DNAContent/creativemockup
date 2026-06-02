@@ -634,6 +634,7 @@ function CommentRow({
           onKeyDown={(e) => {
             if (e.key === "Enter") reply();
           }}
+          aria-label="Reply to the client"
           placeholder="Reply to the client…"
           className="min-w-0 flex-1 rounded-lg border border-neutral-700 px-3 py-1.5 text-sm text-neutral-100"
         />

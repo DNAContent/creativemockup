@@ -72,11 +72,17 @@ export async function grantRequest(
 
   const { data: req, error: reqErr } = await supabase
     .from("access_requests")
-    .select("email, creative_sets(client_id)")
+    .select("email, status, creative_sets(client_id)")
     .eq("id", requestId)
     .maybeSingle();
   if (reqErr) return { error: reqErr.message };
   if (!req) return { error: "Request not found." };
+
+  // Idempotent: a second click (or a stale UI) shouldn't re-add the contact.
+  if (req.status === "granted") {
+    revalidatePath(PATH);
+    return {};
+  }
 
   const rel = req.creative_sets as
     | { client_id: string }
@@ -85,8 +91,20 @@ export async function grantRequest(
   const clientId = Array.isArray(rel) ? rel[0]?.client_id : rel?.client_id;
   if (!clientId) return { error: "Could not resolve client for request." };
 
-  const add = await addContact(clientId, req.email as string, caps);
-  if (add.error) return add;
+  // Upsert the contact: if they're already on this client (e.g. requested
+  // access twice), just apply the granted caps instead of hitting the unique
+  // index and surfacing a raw Postgres error.
+  const emailNorm = (req.email as string).trim().toLowerCase();
+  const { data: existing } = await supabase
+    .from("client_contacts")
+    .select("id")
+    .eq("client_id", clientId)
+    .eq("email", emailNorm)
+    .maybeSingle();
+  const res = existing
+    ? await setContactCaps(existing.id as string, caps)
+    : await addContact(clientId, emailNorm, caps);
+  if (res.error) return res;
 
   const { error } = await supabase
     .from("access_requests")
