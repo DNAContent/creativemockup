@@ -21,8 +21,11 @@ export default function ContactCapsPicker({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <span className="rounded-full bg-neutral-800 px-2 py-1 text-[11px] text-neutral-400">
-        View
+      <span
+        title="Every contact can view — always on"
+        className="rounded-full border border-indigo-500/40 bg-indigo-500/15 px-2.5 py-1 text-[11px] text-indigo-300"
+      >
+        ✓ View
       </span>
       {CAPS.map(({ key, label }) => {
         const on = value[key];

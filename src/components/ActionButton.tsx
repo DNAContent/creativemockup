@@ -13,6 +13,8 @@ export default function ActionButton({
   icon,
   disabled,
   busyLabel,
+  title,
+  ariaLabel,
 }: {
   onClick: () => Promise<unknown> | void;
   children: React.ReactNode;
@@ -20,6 +22,8 @@ export default function ActionButton({
   icon?: React.ReactNode;
   disabled?: boolean;
   busyLabel?: string;
+  title?: string;
+  ariaLabel?: string;
 }) {
   const [busy, setBusy] = useState(false);
   async function run() {
@@ -37,6 +41,8 @@ export default function ActionButton({
       onClick={run}
       disabled={busy || disabled}
       aria-busy={busy}
+      title={title}
+      aria-label={ariaLabel}
       className={className}
     >
       {busy ? <Spinner className="h-3.5 w-3.5" /> : icon}

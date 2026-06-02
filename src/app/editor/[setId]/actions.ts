@@ -113,17 +113,16 @@ export async function deleteCreative(setId: string, creativeId: string) {
 }
 
 // Persist a new ordering. `orderedIds` is the full list of creative ids in the
-// desired order; we write back position = index for each.
+// desired order; the DB writes position = index for all rows in ONE statement
+// (db/15 `reorder_creatives`) so a partial failure or a concurrent reorder
+// can't leave duplicate/scrambled positions.
 export async function reorderCreatives(setId: string, orderedIds: string[]) {
   const supabase = await createClient();
-  // Sequential to keep it simple and order-safe; lists are small.
-  for (let i = 0; i < orderedIds.length; i++) {
-    const { error } = await supabase
-      .from("ads")
-      .update({ position: i })
-      .eq("id", orderedIds[i]);
-    if (error) return { error: error.message };
-  }
+  const { error } = await supabase.rpc("reorder_creatives", {
+    p_set_id: setId,
+    p_ordered_ids: orderedIds,
+  });
+  if (error) return { error: error.message };
   revalidateEditor(setId);
   return {};
 }

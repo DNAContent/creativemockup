@@ -45,6 +45,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [confirmState, setConfirmState] = useState<ConfirmState>(null);
   const idRef = useRef(0);
+  // Tracks the in-flight confirm's resolver so a second confirm() (or settle)
+  // can release the previous awaiter instead of leaving it hung forever.
+  const pendingResolve = useRef<((ok: boolean) => void) | null>(null);
 
   const toast = useCallback((message: string, type: ToastType = "info") => {
     const id = ++idRef.current;
@@ -57,13 +60,18 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const confirm = useCallback(
     (message: string) =>
-      new Promise<boolean>((resolve) =>
-        setConfirmState({ message, resolve }),
-      ),
+      new Promise<boolean>((resolve) => {
+        // Release any confirm still awaiting (treat it as cancelled) so its
+        // caller doesn't hang when a new one opens before the first settles.
+        pendingResolve.current?.(false);
+        pendingResolve.current = resolve;
+        setConfirmState({ message, resolve });
+      }),
     [],
   );
 
   function settle(ok: boolean) {
+    pendingResolve.current = null;
     confirmState?.resolve(ok);
     setConfirmState(null);
   }

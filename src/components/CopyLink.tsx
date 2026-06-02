@@ -31,11 +31,12 @@ export default function CopyLink({
     <button
       onClick={copy}
       disabled={disabled}
-      title={disabled ? "Set needs a slug first" : undefined}
-      className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs font-medium text-indigo-300 hover:bg-neutral-800 disabled:opacity-40"
+      title={disabled ? "Set needs a slug first" : "Copy review link"}
+      aria-label="Copy review link"
+      className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-2.5 py-1.5 text-xs font-medium text-indigo-300 hover:bg-neutral-800 disabled:opacity-40"
     >
       {copied ? <CheckIcon className="h-3.5 w-3.5" /> : <LinkIcon className="h-3.5 w-3.5" />}
-      {copied ? "Copied!" : "Copy review link"}
+      <span className="hidden sm:inline">{copied ? "Copied!" : "Copy link"}</span>
     </button>
   );
 }

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import ViewToggle, { useViewMode } from "@/components/ViewToggle";
+import Logo from "@/components/Logo";
 import { SET_STATUS_LABELS, SET_STATUS_PILL, type SetStatus } from "@/lib/types";
 
 export type ReviewSet = {
@@ -34,14 +35,12 @@ export default function ReviewsDashboard({ groups }: { groups: ReviewGroup[] }) 
       {groups.map((g) => (
         <div key={g.slug} className="mb-5">
           <div className="mb-2 flex items-center gap-2.5">
-            {g.logo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={g.logo} alt="" className="h-8 w-8 rounded-lg object-cover" />
-            ) : (
-              <div className="grid h-8 w-8 place-items-center rounded-lg bg-neutral-800 text-xs text-neutral-400">
-                {g.name.slice(0, 1).toUpperCase()}
-              </div>
-            )}
+            <Logo
+              src={g.logo}
+              name={g.name}
+              imgClassName="h-8 w-8 rounded-lg object-cover"
+              fallbackClassName="grid h-8 w-8 place-items-center rounded-lg bg-neutral-800 text-xs text-neutral-400"
+            />
             <h3 className="text-sm font-semibold">{g.name}</h3>
           </div>
 

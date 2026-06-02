@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useToast } from "@/components/Toast";
 import ViewToggle, { useViewMode } from "@/components/ViewToggle";
+import Logo from "@/components/Logo";
 import { PlusIcon } from "@/components/icons";
 import type { SetStatus } from "@/lib/types";
 import { addClient } from "./actions";
@@ -66,14 +67,12 @@ export default function DashboardClient({ clients }: { clients: HomeClient[] }) 
                 href={`/clients/${c.id}`}
                 className="flex flex-col items-center gap-2 rounded-xl border border-neutral-800 bg-neutral-900 p-5 text-center hover:-translate-y-0.5 hover:border-neutral-700 hover:bg-neutral-800/50 hover:shadow-lg hover:shadow-black/20"
               >
-                {logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logo} alt="" className="h-14 w-14 rounded-xl object-cover" />
-                ) : (
-                  <div className="grid h-14 w-14 place-items-center rounded-xl bg-neutral-800 text-xl text-neutral-400">
-                    {c.name.slice(0, 1).toUpperCase()}
-                  </div>
-                )}
+                <Logo
+                  src={logo}
+                  name={c.name}
+                  imgClassName="h-14 w-14 rounded-xl object-cover"
+                  fallbackClassName="grid h-14 w-14 place-items-center rounded-xl bg-neutral-800 text-xl text-neutral-400"
+                />
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium">{c.name}</div>
                   <div className="text-xs text-neutral-500">
@@ -98,14 +97,12 @@ export default function DashboardClient({ clients }: { clients: HomeClient[] }) 
                 href={`/clients/${c.id}`}
                 className="flex items-center gap-3 border-t border-neutral-800 px-4 py-3 first:border-t-0 hover:bg-neutral-800/50"
               >
-                {logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logo} alt="" className="h-8 w-8 rounded object-cover" />
-                ) : (
-                  <div className="grid h-8 w-8 place-items-center rounded bg-neutral-800 text-xs text-neutral-400">
-                    {c.name.slice(0, 1).toUpperCase()}
-                  </div>
-                )}
+                <Logo
+                  src={logo}
+                  name={c.name}
+                  imgClassName="h-8 w-8 rounded object-cover"
+                  fallbackClassName="grid h-8 w-8 place-items-center rounded bg-neutral-800 text-xs text-neutral-400"
+                />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{c.name}</div>
                   {c.contact_email && (

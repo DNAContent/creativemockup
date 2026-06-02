@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/Toast";
 import MockupCanvas, { ZoomBar } from "@/components/MockupCanvas";
 import ActionButton from "@/components/ActionButton";
+import Logo from "@/components/Logo";
 import {
   SET_STATUS_LABELS,
   SET_STATUS_PILL,
@@ -98,13 +99,18 @@ export default function PortalClient({
     ch.on("postgres_changes", { event: "*", schema: "public", table: "creative_sets", filter: `id=eq.${setId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "replies" }, bump);
-    supabase.auth.getSession().then(({ data }) => {
-      if (cancelled) return;
-      if (data.session) supabase.realtime.setAuth(data.session.access_token);
-      ch.subscribe();
-    });
+    // Defer the WebSocket handshake past first paint — live updates aren't
+    // needed in the first second and the connect competes with hydration.
+    const startTimer = setTimeout(() => {
+      supabase.auth.getSession().then(({ data }) => {
+        if (cancelled) return;
+        if (data.session) supabase.realtime.setAuth(data.session.access_token);
+        ch.subscribe();
+      });
+    }, 1200);
     return () => {
       cancelled = true;
+      clearTimeout(startTimer);
       if (timer) clearTimeout(timer);
       supabase.removeChannel(ch);
     };
@@ -151,10 +157,20 @@ export default function PortalClient({
   }
   async function saveEdit() {
     if (!draft || !selected) return;
+    // Send only the fields that changed so an editor-tier client doesn't
+    // clobber a staff member's concurrent edits to the other fields.
+    const patch: Record<string, string | null> = {};
+    if (draft.headline !== selected.headline) patch.headline = draft.headline;
+    if (draft.copy !== selected.copy) patch.copy = draft.copy;
+    if (draft.cta !== selected.cta) patch.cta = draft.cta;
+    if (Object.keys(patch).length === 0) {
+      toast("No changes to save.", "info");
+      return;
+    }
     setActing(true);
     const { error } = await supabase
       .from("ads")
-      .update({ headline: draft.headline, copy: draft.copy, cta: draft.cta })
+      .update(patch)
       .eq("id", selected.id);
     setActing(false);
     if (error) return toast(error.message, "error");
@@ -181,10 +197,11 @@ export default function PortalClient({
   return (
     <div className="flex min-h-dvh flex-col lg:h-dvh">
       <header className="flex items-center gap-3 border-b border-neutral-800 bg-neutral-900 px-4 py-3.5 sm:px-6">
-        {client.logo_url && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={client.logo_url} alt="" className="h-7 w-7 shrink-0 rounded object-cover" />
-        )}
+        <Logo
+          src={client.logo_url}
+          name={client.name}
+          imgClassName="h-7 w-7 shrink-0 rounded object-cover"
+        />
         <strong className="truncate text-sm">{client.name}</strong>
         <span className="hidden truncate text-sm text-neutral-400 sm:inline">
           — {setName}

@@ -1711,3 +1711,63 @@ $$;
 drop trigger if exists notify_reply on public.replies;
 create trigger notify_reply after insert on public.replies
   for each row execute function public.tg_notify_reply();
+
+
+-- ===== 15_pin_author_and_atomic_reorder.sql =====
+-- ============================================================================
+-- 15_pin_author_and_atomic_reorder.sql
+--   (1) Pin comment/reply author to the caller's JWT email (BEFORE INSERT), so
+--       a client can't post AS someone else. Runs before the notify triggers.
+--   (2) Atomic creative reorder RPC (one statement; RLS-scoped, SECURITY INVOKER)
+--       replacing the old row-by-row loop that could scramble positions.
+-- ============================================================================
+
+create or replace function public.tg_pin_author()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  claims    text := current_setting('request.jwt.claims', true);
+  jwt_email text;
+begin
+  if claims is not null and claims <> '' then
+    jwt_email := nullif(claims::jsonb ->> 'email', '');
+    if jwt_email is not null then
+      new.author := jwt_email;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists pin_author on public.comments;
+create trigger pin_author before insert on public.comments
+  for each row execute function public.tg_pin_author();
+
+drop trigger if exists pin_author on public.replies;
+create trigger pin_author before insert on public.replies
+  for each row execute function public.tg_pin_author();
+
+create or replace function public.reorder_creatives(
+  p_set_id uuid,
+  p_ordered_ids uuid[]
+)
+returns void
+language plpgsql
+security invoker
+set search_path = public
+as $$
+begin
+  update public.ads a
+  set position = o.ord
+  from (
+    select t.id, (t.ord - 1)::int as ord
+    from unnest(p_ordered_ids) with ordinality as t(id, ord)
+  ) o
+  where a.id = o.id and a.set_id = p_set_id;
+end;
+$$;
+
+grant execute on function public.reorder_creatives(uuid, uuid[]) to authenticated;

@@ -1,0 +1,37 @@
+/*!
+ * Tabler Icons 3.19.0 — SELF-HOSTED SUBSET (12 glyphs used by the mockups).
+ * Original webfont is ~864KB; this subset is ~3KB. To add an icon: include its
+ * Tabler class below with the codepoint from the full CSS, then re-subset the
+ * woff2 (see db/.. note / the pyftsubset command in the build notes).
+ * License — https://github.com/tabler/tabler-icons/blob/master/LICENSE
+ */
+@font-face {
+  font-family: "tabler-icons";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("./fonts/tabler-icons.woff2") format("woff2");
+}
+.ti {
+  font-family: "tabler-icons" !important;
+  speak: none;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.ti-camera:before { content: "\ea54"; }
+.ti-dots-vertical:before { content: "\ea94"; }
+.ti-external-link:before { content: "\ea99"; }
+.ti-heart:before { content: "\eabe"; }
+.ti-message-circle:before { content: "\eaed"; }
+.ti-photo:before { content: "\eb0a"; }
+.ti-photo-off:before { content: "\ecf6"; }
+.ti-repeat:before { content: "\eb72"; }
+.ti-send:before { content: "\eb1e"; }
+.ti-share:before { content: "\eb21"; }
+.ti-thumb-up:before { content: "\eb3c"; }
+.ti-world:before { content: "\eb54"; }

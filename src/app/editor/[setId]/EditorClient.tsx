@@ -36,8 +36,22 @@ const EDIT_KEYS: (keyof CreativeEdit)[] = [
   "media_img", "media_video", "aspect_ratio",
 ];
 
-function patchOf(c: EditorCreative): CreativeEdit {
-  return Object.fromEntries(EDIT_KEYS.map((k) => [k, c[k]])) as CreativeEdit;
+// Only the fields that actually changed since the last saved baseline. Sending
+// a minimal patch (instead of the whole row) means two people editing DIFFERENT
+// fields of the same creative don't clobber each other's work — only a true
+// same-field collision is last-write-wins.
+function changedPatch(
+  c: EditorCreative,
+  baseline: EditorCreative | null,
+): CreativeEdit {
+  if (!baseline || baseline.id !== c.id) {
+    return Object.fromEntries(EDIT_KEYS.map((k) => [k, c[k]])) as CreativeEdit;
+  }
+  const patch: CreativeEdit = {};
+  for (const k of EDIT_KEYS) {
+    if (c[k] !== baseline[k]) (patch as Record<string, unknown>)[k] = c[k];
+  }
+  return patch;
 }
 
 export default function EditorClient({
@@ -139,8 +153,15 @@ export default function EditorClient({
   // flush = a background save of the OUTGOING creative on switch; it must not
   // touch savedRef/saveState (those now belong to the newly-selected creative).
   async function doSave(c: EditorCreative, flush = false) {
+    // Diff against the baseline synchronously (before any await): on flush,
+    // savedRef still points at the outgoing creative until the switch re-renders.
+    const patch = changedPatch(c, savedRef.current);
+    if (Object.keys(patch).length === 0) {
+      if (!flush) setSaveState("saved");
+      return;
+    }
     if (!flush) setSaveState("saving");
-    const res = await updateCreative(setId, c.id, patchOf(c));
+    const res = await updateCreative(setId, c.id, patch);
     if (res.error) {
       if (!flush) setSaveState("unsaved");
       return toast(res.error, "error");
@@ -199,13 +220,18 @@ export default function EditorClient({
       .on("postgres_changes", { event: "*", schema: "public", table: "ads", filter: `set_id=eq.${setId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "replies" }, bump);
-    supabase.auth.getSession().then(({ data }) => {
-      if (cancelled) return;
-      if (data.session) supabase.realtime.setAuth(data.session.access_token);
-      channel.subscribe();
-    });
+    // Defer the WebSocket handshake past first paint — live updates aren't
+    // needed in the first second and the connect competes with hydration.
+    const startTimer = setTimeout(() => {
+      supabase.auth.getSession().then(({ data }) => {
+        if (cancelled) return;
+        if (data.session) supabase.realtime.setAuth(data.session.access_token);
+        channel.subscribe();
+      });
+    }, 1200);
     return () => {
       cancelled = true;
+      clearTimeout(startTimer);
       if (timer) clearTimeout(timer);
       supabase.removeChannel(channel);
     };

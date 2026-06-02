@@ -6,7 +6,8 @@ import Link from "next/link";
 import CopyLink from "@/components/CopyLink";
 import { useToast } from "@/components/Toast";
 import ViewToggle, { useViewMode } from "@/components/ViewToggle";
-import { EditPageIcon, PlusIcon } from "@/components/icons";
+import Logo from "@/components/Logo";
+import { CalendarIcon, EditPageIcon, PlusIcon, TrashIcon } from "@/components/icons";
 import {
   DEFAULT_CONTACT_CAPS,
   SET_STATUS_LABELS,
@@ -163,14 +164,12 @@ function DetailsCard({
     return (
       <section className="rounded-xl border border-neutral-800 bg-gradient-to-b from-neutral-900 to-neutral-950 p-6">
         <div className="flex items-start gap-4">
-          {heroLogo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={heroLogo} alt="" className="h-16 w-16 rounded-xl object-cover" />
-          ) : (
-            <div className="grid h-16 w-16 place-items-center rounded-xl bg-neutral-800 text-2xl text-neutral-400">
-              {client.name.slice(0, 1).toUpperCase()}
-            </div>
-          )}
+          <Logo
+            src={heroLogo}
+            name={client.name}
+            imgClassName="h-16 w-16 rounded-xl object-cover"
+            fallbackClassName="grid h-16 w-16 place-items-center rounded-xl bg-neutral-800 text-2xl text-neutral-400"
+          />
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-xl font-semibold">{client.name}</h1>
             <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-neutral-400">
@@ -350,18 +349,40 @@ function SetRow({
   card?: boolean;
 }) {
   const { toast, confirm } = useToast();
-  const [editing, setEditing] = useState(false);
+  // Inline-editable name (click the title to rename — like the editor sidebar).
   const [name, setName] = useState(set.name);
-  const [due, setDue] = useState(set.due_date ?? "");
+  const [prevName, setPrevName] = useState(set.name);
+  if (set.name !== prevName) {
+    setPrevName(set.name);
+    setName(set.name);
+  }
+  const [dueEditing, setDueEditing] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  async function save() {
+  async function saveName() {
+    const v = name.trim();
+    if (!v || v === set.name) {
+      setName(set.name);
+      return;
+    }
     setBusy(true);
-    const res = await updateSet(set.id, { name, due_date: due || null });
+    const res = await updateSet(set.id, { name: v });
+    setBusy(false);
+    if (res.error) {
+      setName(set.name);
+      return toast(res.error, "error");
+    }
+    toast("Set renamed.", "success");
+    onChanged();
+  }
+  async function saveDue(next: string) {
+    setDueEditing(false);
+    if ((next || null) === (set.due_date ?? null)) return;
+    setBusy(true);
+    const res = await updateSet(set.id, { due_date: next || null });
     setBusy(false);
     if (res.error) return toast(res.error, "error");
-    setEditing(false);
-    toast("Set updated.", "success");
+    toast(next ? "Due date set." : "Due date cleared.", "success");
     onChanged();
   }
   async function remove() {
@@ -379,79 +400,95 @@ function SetRow({
     onChanged();
   }
 
-  if (editing) {
-    return (
-      <div className="flex flex-wrap items-end gap-2 border-t border-neutral-800 py-2.5 first:border-t-0">
-        <label className="min-w-0 flex-1 text-xs text-neutral-500 sm:min-w-40">
-          Set name
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-100"
-          />
-        </label>
-        <label className="text-xs text-neutral-500">
-          Due date
+  const meta = (
+    <div className="min-w-0 flex-1">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={saveName}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") {
+              setName(set.name);
+              e.currentTarget.blur();
+            }
+          }}
+          aria-label="Set name"
+          title="Click to rename this set"
+          className="min-w-0 max-w-full rounded border border-transparent !bg-transparent px-1 py-0.5 text-sm font-medium text-neutral-100 hover:border-neutral-700 focus:border-neutral-700 focus:!bg-neutral-950 focus:outline-none"
+          style={{ width: `${Math.max(name.length + 1, 6)}ch` }}
+        />
+        <span
+          className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] ${SET_STATUS_PILL[set.status]}`}
+        >
+          {SET_STATUS_LABELS[set.status]}
+        </span>
+      </div>
+      <div className="mt-0.5 pl-1 text-xs">
+        {dueEditing ? (
           <input
             type="date"
-            value={due}
-            onChange={(e) => setDue(e.target.value)}
-            className="mt-1 block rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-100"
+            defaultValue={set.due_date ?? ""}
+            autoFocus
+            onBlur={(e) => saveDue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+              if (e.key === "Escape") setDueEditing(false);
+            }}
+            className="rounded-lg border border-neutral-700 px-2 py-1 text-xs text-neutral-100"
           />
-        </label>
-        <button
-          onClick={save}
-          disabled={busy}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-        >
-          {busy ? "Saving…" : "Save"}
-        </button>
-        <button
-          onClick={() => setEditing(false)}
-          className="rounded-lg border border-neutral-700 px-3 py-2 text-sm hover:bg-neutral-800"
-        >
-          Cancel
-        </button>
+        ) : set.due_date ? (
+          <button
+            onClick={() => setDueEditing(true)}
+            className="text-neutral-400 hover:text-neutral-200"
+          >
+            due {set.due_date}
+          </button>
+        ) : (
+          <button
+            onClick={() => setDueEditing(true)}
+            className="text-neutral-600 hover:text-neutral-300"
+          >
+            + due date
+          </button>
+        )}
       </div>
-    );
-  }
-
-  const meta = (
-    <div className="min-w-0 text-sm">
-      <span className="font-medium">{set.name}</span>{" "}
-      <span
-        className={`rounded-full px-2 py-0.5 text-[11px] ${SET_STATUS_PILL[set.status]}`}
-      >
-        {SET_STATUS_LABELS[set.status]}
-      </span>
-      {set.due_date && (
-        <span className="text-neutral-400"> · due {set.due_date}</span>
-      )}
     </div>
   );
+
+  const linkBtn =
+    "inline-flex items-center gap-1.5 rounded-lg border border-neutral-700 px-2.5 py-1.5 text-xs font-medium hover:bg-neutral-800";
   const actions = (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex shrink-0 items-center gap-1.5">
       <Link
         href={`/editor/${set.id}`}
-        className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs font-medium text-indigo-300 hover:bg-neutral-800"
+        title="Open editor"
+        aria-label="Open editor"
+        className={`${linkBtn} text-indigo-300`}
       >
         <EditPageIcon className="h-3.5 w-3.5" />
-        Open editor
+        <span className="hidden sm:inline">Edit</span>
       </Link>
       <CopyLink clientSlug={clientSlug} setSlug={set.slug} />
       <button
-        onClick={() => setEditing(true)}
-        className="rounded-lg border border-neutral-700 px-2.5 py-1.5 text-xs hover:bg-neutral-800"
+        onClick={() => setDueEditing(true)}
+        title="Set due date"
+        aria-label="Set due date"
+        className={linkBtn}
       >
-        Rename
+        <CalendarIcon className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Due</span>
       </button>
       <ActionButton
         onClick={remove}
         disabled={busy}
-        busyLabel="Deleting…"
+        title="Delete set"
+        ariaLabel="Delete set"
+        icon={<TrashIcon className="h-3.5 w-3.5" />}
         className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-500/30 px-2.5 py-1.5 text-xs text-red-400 hover:bg-red-500/15 disabled:opacity-50"
       >
-        Delete
+        <span className="hidden sm:inline">Delete</span>
       </ActionButton>
     </div>
   );

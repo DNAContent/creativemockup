@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import AppHeader from "@/components/AppHeader";
+import Logo from "@/components/Logo";
 import { SET_STATUS_LABELS, SET_STATUS_PILL, type SetStatus } from "@/lib/types";
 import { clientSignIn, clientSignOut } from "../actions";
 
@@ -94,10 +95,7 @@ export default async function ClientDashboard(props: {
       <AppHeader
         title={
           <span className="flex items-center gap-2">
-            {logo && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={logo} alt="" className="h-6 w-6 rounded object-cover" />
-            )}
+            <Logo src={logo} name={clientName} imgClassName="h-6 w-6 rounded object-cover" />
             {clientName}
           </span>
         }

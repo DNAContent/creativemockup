@@ -176,13 +176,19 @@ export async function addSet(
     .select("brand_name, brand_logo, name")
     .eq("id", clientId)
     .maybeSingle();
-  await supabase.from("ads").insert({
+  const { error: adError } = await supabase.from("ads").insert({
     set_id: setId,
     position: 0,
     format: "fb-feed",
     brand_name: cl?.brand_name || cl?.name || "",
     brand_logo: cl?.brand_logo || "",
   });
+  if (adError) {
+    // Roll back the empty set so we don't leave an orphan with no creatives,
+    // and surface the real failure instead of silently "succeeding".
+    await supabase.from("creative_sets").delete().eq("id", setId);
+    return { error: adError.message };
+  }
 
   revalidatePath("/");
   return {};

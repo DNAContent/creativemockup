@@ -41,8 +41,10 @@ function toAd(c: CanvasCreative): Ad {
 
 export const ZOOMS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
-const TABLER =
-  '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/tabler-icons.min.css" />';
+// Self-hosted, subsetted to the 12 glyphs the mockups use (~3KB vs the CDN's
+// ~864KB full webfont) — same origin, no cross-origin handshake, no render
+// block on first paint. See public/tabler/tabler-icons.min.css.
+const TABLER = '<link rel="stylesheet" href="/tabler/tabler-icons.min.css" />';
 
 // STABLE document: never changes, so the iframe loads exactly once. All content
 // (mockup HTML, zoom, highlight) arrives via postMessage — no reload, no flash.
