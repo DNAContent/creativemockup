@@ -116,28 +116,12 @@ export default function EditorClient({
   const [saveState, setSaveState] = useState<
     "idle" | "unsaved" | "saving" | "saved"
   >("idle");
+  // Load the selected creative into the draft whenever the selection changes.
   if (selectedId !== draftId) {
     setDraftId(selectedId);
     setDraft(selected);
     savedRef.current = selected;
     setSaveState("idle");
-  } else if (
-    selected &&
-    draft &&
-    savedRef.current &&
-    draft.id === selected.id &&
-    selected.id === savedRef.current.id
-  ) {
-    const localEdits = EDIT_KEYS.some((k) => draft[k] !== savedRef.current![k]);
-    const serverChanged = EDIT_KEYS.some(
-      (k) => selected[k] !== savedRef.current![k],
-    );
-    // A teammate edited this creative and we have nothing unsaved — adopt it
-    // live. (While you're typing, localEdits guards your draft.)
-    if (!localEdits && serverChanged) {
-      setDraft(selected);
-      savedRef.current = selected;
-    }
   }
 
   const dirty =
@@ -150,15 +134,19 @@ export default function EditorClient({
     setDraft((d) => (d ? { ...d, [key]: value } : d));
   }
 
-  async function doSave(c: EditorCreative) {
-    setSaveState("saving");
+  // flush = a background save of the OUTGOING creative on switch; it must not
+  // touch savedRef/saveState (those now belong to the newly-selected creative).
+  async function doSave(c: EditorCreative, flush = false) {
+    if (!flush) setSaveState("saving");
     const res = await updateCreative(setId, c.id, patchOf(c));
     if (res.error) {
-      setSaveState("unsaved");
+      if (!flush) setSaveState("unsaved");
       return toast(res.error, "error");
     }
-    savedRef.current = c;
-    setSaveState("saved");
+    if (!flush) {
+      savedRef.current = c;
+      setSaveState("saved");
+    }
     refresh();
   }
 
@@ -185,9 +173,11 @@ export default function EditorClient({
     return () => window.removeEventListener("beforeunload", h);
   }, []);
 
-  // Switch creative, flushing any pending edit first so nothing is lost.
-  async function selectCreative(id: string) {
-    if (dirty && draft) await doSave(draft);
+  // Switch creative. Flush any unsaved edit to the outgoing creative in the
+  // background (fire-and-forget) and switch immediately — selection never waits.
+  function selectCreative(id: string) {
+    if (id === selectedId) return;
+    if (dirty && draft) void doSave(draft, true);
     setSelectedId(id);
   }
 
