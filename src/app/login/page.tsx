@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 import LoginButtons from "./LoginButtons";
 import { HelixLogo } from "@/components/icons";
 
@@ -5,6 +7,14 @@ export default async function LoginPage(props: {
   searchParams: Promise<{ error?: string; sent?: string }>;
 }) {
   const { error, sent } = await props.searchParams;
+
+  // Already signed in? Send them on — "/" routes staff to the dashboard and
+  // clients to /c.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) redirect("/");
 
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-6 py-16">
