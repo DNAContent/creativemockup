@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { createClient } from "@/lib/supabase/client";
 import CopyLink from "@/components/CopyLink";
-import MockupCanvas, { ZoomBar } from "@/components/MockupCanvas";
+import dynamic from "next/dynamic";
+import ZoomBar from "@/components/ZoomBar";
 import ActionButton from "@/components/ActionButton";
 import { PlusIcon, Spinner } from "@/components/icons";
 import {
@@ -27,6 +28,10 @@ import {
   updateCreative,
   type CreativeEdit,
 } from "./actions";
+
+// Heavy (pulls in renderMockup + the iframe machinery) and only needed once a
+// creative is on screen — code-split it out of the route's first-load JS.
+const MockupCanvas = dynamic(() => import("@/components/MockupCanvas"));
 
 export type EditorCreative = Creative & { comments: ReviewComment[] };
 
@@ -86,10 +91,12 @@ export default function EditorClient({
   const [zoom, setZoom] = useState(1);
   const [hl, setHl] = useState<string | null>(null);
 
-  // Editable set name (re-syncs if the server name changes).
+  // Editable set name (re-syncs if the server name changes — but not while
+  // you're typing, so a realtime refresh can't wipe an in-progress rename).
   const [nameDraft, setNameDraft] = useState(setName);
   const [prevName, setPrevName] = useState(setName);
-  if (setName !== prevName) {
+  const nameFocused = useRef(false);
+  if (!nameFocused.current && setName !== prevName) {
     setPrevName(setName);
     setNameDraft(setName);
   }
@@ -285,18 +292,27 @@ export default function EditorClient({
   return (
     <div className="flex flex-col text-sm lg:h-[calc(100dvh-57px)] lg:flex-row">
       {/* LEFT — creatives in this set */}
-      <aside className="flex w-full shrink-0 flex-col border-b border-neutral-800 bg-neutral-950 lg:w-60 lg:border-b-0 lg:border-r">
+      <aside
+        aria-label="Creatives"
+        className="flex w-full shrink-0 flex-col border-b border-neutral-800 bg-neutral-950 lg:w-60 lg:border-b-0 lg:border-r"
+      >
         <div className="border-b border-neutral-800 px-4 py-3">
           <input
             value={nameDraft}
             onChange={(e) => setNameDraft(e.target.value)}
-            onBlur={saveName}
+            onFocus={() => {
+              nameFocused.current = true;
+            }}
+            onBlur={() => {
+              nameFocused.current = false;
+              saveName();
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter") e.currentTarget.blur();
             }}
             aria-label="Set name"
             title="Click to rename this set"
-            className="w-full rounded border border-transparent !bg-transparent px-1 py-0.5 font-semibold text-neutral-100 hover:border-neutral-700 focus:border-neutral-700 focus:!bg-neutral-900 focus:outline-none"
+            className="w-full rounded border border-transparent !bg-transparent px-1 py-0.5 font-semibold text-neutral-100 hover:border-neutral-700 focus:border-neutral-700 focus:!bg-neutral-900"
           />
           <label className="mt-2 block text-[11px] text-neutral-500">
             Set status
@@ -403,11 +419,16 @@ export default function EditorClient({
       </section>
 
       {/* RIGHT — Edit / Review */}
-      <aside className="flex w-full shrink-0 flex-col border-t border-neutral-800 bg-neutral-900 lg:w-96 lg:border-l lg:border-t-0">
-        <div className="flex border-b border-neutral-800">
+      <aside
+        aria-label="Edit and review"
+        className="flex w-full shrink-0 flex-col border-t border-neutral-800 bg-neutral-900 lg:w-96 lg:border-l lg:border-t-0"
+      >
+        <div role="tablist" aria-label="Panel" className="flex border-b border-neutral-800">
           {(["edit", "review"] as const).map((t) => (
             <button
               key={t}
+              role="tab"
+              aria-selected={tab === t}
               onClick={() => setTab(t)}
               className={`flex-1 px-4 py-3 text-xs font-medium capitalize ${
                 tab === t
@@ -425,9 +446,9 @@ export default function EditorClient({
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4">
+        <div role="tabpanel" className="flex-1 overflow-y-auto p-4">
           {!draft || !selected ? (
-            <p className="text-xs text-neutral-500">Nothing selected.</p>
+            <p className="text-xs text-neutral-400">Nothing selected.</p>
           ) : tab === "edit" ? (
             <EditPanel draft={draft} field={field} setHl={setHl} />
           ) : (
@@ -451,7 +472,7 @@ export default function EditorClient({
             >
               Delete
             </ActionButton>
-            <span className="text-xs text-neutral-500">
+            <span role="status" aria-live="polite" className="text-xs text-neutral-400">
               {saveState === "saving"
                 ? "Saving…"
                 : dirty || saveState === "unsaved"
@@ -670,7 +691,7 @@ function Text({
   onBlur?: () => void;
 }) {
   return (
-    <label className="block text-xs text-neutral-500">
+    <label className="block text-xs text-neutral-400">
       {label}
       <input
         value={value}
@@ -697,7 +718,7 @@ function Area({
   onBlur?: () => void;
 }) {
   return (
-    <label className="block text-xs text-neutral-500">
+    <label className="block text-xs text-neutral-400">
       {label}
       <textarea
         value={value}
@@ -723,7 +744,7 @@ function Select({
   options: { value: string; label: string }[];
 }) {
   return (
-    <label className="block text-xs text-neutral-500">
+    <label className="block text-xs text-neutral-400">
       {label}
       <select
         value={value}

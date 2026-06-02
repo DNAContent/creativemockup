@@ -10,7 +10,8 @@ export async function clientSignIn(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
   // Where to land after sign-in; only allow /c paths (no open redirect).
   const rawNext = String(formData.get("next") ?? "/c");
-  const next = rawNext.startsWith("/c") ? rawNext : "/c";
+  // Strictly /c or /c/… — "/c".startsWith trap would also pass /clients, /cabal.
+  const next = rawNext === "/c" || rawNext.startsWith("/c/") ? rawNext : "/c";
   if (!email) redirect(`${next}?error=${encodeURIComponent("Enter your email.")}`);
 
   const supabase = await createClient();

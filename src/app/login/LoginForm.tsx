@@ -17,6 +17,7 @@ export default function LoginForm({ initialError }: { initialError?: string }) {
   const [busy, setBusy] = useState<null | "in" | "up" | "magic">(null);
   const [error, setError] = useState<string | null>(initialError ?? null);
   const [sent, setSent] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function signIn() {
     if (!email || !password) {
@@ -42,10 +43,17 @@ export default function LoginForm({ initialError }: { initialError?: string }) {
     }
     setBusy("up");
     setError(null);
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
       setError(error.message);
       setBusy(null);
+      return;
+    }
+    if (!data.session) {
+      // Email confirmation is ON — no session yet. Navigating home would just
+      // bounce back to /login, so tell them to confirm first.
+      setBusy(null);
+      setNotice("Account created — check your email to confirm it, then sign in.");
       return;
     }
     window.location.assign("/?welcome=1");
@@ -77,7 +85,7 @@ export default function LoginForm({ initialError }: { initialError?: string }) {
 
   return (
     <div className="space-y-3 rounded-xl border border-neutral-800 bg-neutral-900 p-5">
-      <label className="block text-xs text-neutral-500">
+      <label className="block text-xs text-neutral-400">
         Email
         <input
           value={email}
@@ -87,7 +95,7 @@ export default function LoginForm({ initialError }: { initialError?: string }) {
           className="mt-1 w-full rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-100"
         />
       </label>
-      <label className="block text-xs text-neutral-500">
+      <label className="block text-xs text-neutral-400">
         Password
         <input
           value={password}
@@ -104,6 +112,11 @@ export default function LoginForm({ initialError }: { initialError?: string }) {
       {sent && (
         <p className="rounded-lg bg-green-500/15 px-3 py-2 text-sm text-green-300">
           Check your email for a sign-in link.
+        </p>
+      )}
+      {notice && (
+        <p className="rounded-lg bg-green-500/15 px-3 py-2 text-sm text-green-300">
+          {notice}
         </p>
       )}
       {error && (

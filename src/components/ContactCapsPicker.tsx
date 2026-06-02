@@ -34,6 +34,7 @@ export default function ContactCapsPicker({
             key={key}
             type="button"
             disabled={disabled}
+            aria-pressed={on}
             onClick={() => onChange({ ...value, [key]: !on })}
             className={`rounded-full border px-2.5 py-1 text-[11px] disabled:opacity-50 ${
               on

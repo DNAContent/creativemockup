@@ -225,7 +225,7 @@ function Field({
   onChange: (v: string) => void;
 }) {
   return (
-    <label className="block text-xs text-neutral-500">
+    <label className="block text-xs text-neutral-400">
       {label}
       <input
         value={value}

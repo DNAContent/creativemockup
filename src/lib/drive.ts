@@ -7,6 +7,8 @@ export function driveDirectUrl(url: string | null | undefined): string {
   const m =
     url.match(/drive\.google\.com\/file\/d\/([^/]+)/) ||
     url.match(/[?&]id=([^&]+)/);
-  if (m && m[1]) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+  // lh3 hotlink format — the legacy `uc?export=view` endpoint now often returns
+  // an HTML interstitial instead of image bytes.
+  if (m && m[1]) return `https://lh3.googleusercontent.com/d/${m[1]}`;
   return url;
 }

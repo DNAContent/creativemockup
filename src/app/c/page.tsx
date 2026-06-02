@@ -36,7 +36,7 @@ export default async function ClientHome(props: {
           Sign in with the email your agency invited.
         </p>
         <form className="space-y-3 rounded-xl border border-neutral-800 bg-neutral-900 p-5">
-          <label className="block text-xs text-neutral-500">
+          <label className="block text-xs text-neutral-400">
             Email
             <input
               name="email"

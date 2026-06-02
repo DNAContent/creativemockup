@@ -36,22 +36,26 @@ export default async function ReviewPortal(props: {
     );
   }
 
-  const { data: creatives } = await supabase
-    .from("ads")
-    .select(
-      "*, comments(id,author,text,target,resolved,created_at, replies(id,author,text,created_at))",
-    )
-    .eq("set_id", set.id)
-    .order("position")
-    .returns<PortalCreative[]>();
-
-  // This contact's granular capabilities for the set (view is implicit).
-  const [{ data: canComment }, { data: canApprove }, { data: canEdit }] =
-    await Promise.all([
-      supabase.rpc("client_can_comment_set", { p_set_id: set.id }),
-      supabase.rpc("client_can_approve_set", { p_set_id: set.id }),
-      supabase.rpc("client_can_edit_set", { p_set_id: set.id }),
-    ]);
+  // Fetch the creatives AND this contact's capabilities in parallel — the caps
+  // RPCs only need set.id, so they shouldn't wait on the larger creatives read.
+  const [
+    { data: creatives },
+    { data: canComment },
+    { data: canApprove },
+    { data: canEdit },
+  ] = await Promise.all([
+    supabase
+      .from("ads")
+      .select(
+        "*, comments(id,author,text,target,resolved,created_at, replies(id,author,text,created_at))",
+      )
+      .eq("set_id", set.id)
+      .order("position")
+      .returns<PortalCreative[]>(),
+    supabase.rpc("client_can_comment_set", { p_set_id: set.id }),
+    supabase.rpc("client_can_approve_set", { p_set_id: set.id }),
+    supabase.rpc("client_can_edit_set", { p_set_id: set.id }),
+  ]);
 
   // The embedded relation may be typed as an object or a single-element array
   // depending on inference; normalize to one object.

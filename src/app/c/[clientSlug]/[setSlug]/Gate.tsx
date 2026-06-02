@@ -64,7 +64,7 @@ export default function Gate({
         action={action}
         className="space-y-3 rounded-xl border border-neutral-800 bg-neutral-900 p-5"
       >
-        <label className="block text-xs text-neutral-500">
+        <label className="block text-xs text-neutral-400">
           Email
           <input
             name="email"
@@ -75,7 +75,7 @@ export default function Gate({
             className="mt-1 w-full rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-100"
           />
         </label>
-        <label className="block text-xs text-neutral-500">
+        <label className="block text-xs text-neutral-400">
           Note to the team (optional)
           <textarea
             name="message"

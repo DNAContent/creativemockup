@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/Toast";
-import MockupCanvas, { ZoomBar } from "@/components/MockupCanvas";
+import dynamic from "next/dynamic";
+import ZoomBar from "@/components/ZoomBar";
 import ActionButton from "@/components/ActionButton";
 import Logo from "@/components/Logo";
 import {
@@ -15,6 +16,10 @@ import {
   type ReviewComment,
   type SetStatus,
 } from "@/lib/types";
+
+// Heavy (pulls in renderMockup + the iframe machinery) — code-split it out of
+// the portal's first-load JS so the shell hydrates faster.
+const MockupCanvas = dynamic(() => import("@/components/MockupCanvas"));
 
 export type PortalCreative = Creative & { comments: ReviewComment[] };
 
@@ -129,19 +134,21 @@ export default function PortalClient({
     refresh();
   }
   async function comment(adId: string, text: string, target: string) {
-    if (!text.trim()) return;
+    const body = text.trim();
+    if (!body) return;
     const { error } = await supabase
       .from("comments")
-      .insert({ ad_id: adId, author: userEmail, text, target });
+      .insert({ ad_id: adId, author: userEmail, text: body, target });
     if (error) return toast(error.message, "error");
     toast("Comment posted.", "success");
     refresh();
   }
   async function reply(commentId: string, text: string) {
-    if (!text.trim()) return;
+    const body = text.trim();
+    if (!body) return;
     const { error } = await supabase
       .from("replies")
-      .insert({ comment_id: commentId, author: userEmail, text });
+      .insert({ comment_id: commentId, author: userEmail, text: body });
     if (error) return toast(error.message, "error");
     toast("Reply posted.", "success");
     refresh();
@@ -216,7 +223,10 @@ export default function PortalClient({
 
       <div className="flex min-h-0 flex-1 flex-col text-sm lg:flex-row">
         {/* LEFT — creatives */}
-        <aside className="flex w-full shrink-0 flex-col border-b border-neutral-800 bg-neutral-950 lg:w-60 lg:border-b-0 lg:border-r">
+        <aside
+          aria-label="Creatives"
+          className="flex w-full shrink-0 flex-col border-b border-neutral-800 bg-neutral-950 lg:w-60 lg:border-b-0 lg:border-r"
+        >
           <div className="border-b border-neutral-800 px-4 py-3">
             <div className="mb-1.5 flex items-center gap-2">
               <span className="text-[11px] uppercase tracking-wide text-neutral-500">
@@ -311,12 +321,17 @@ export default function PortalClient({
         </section>
 
         {/* RIGHT — Review (+ Edit for editor-tier) */}
-        <aside className="flex w-full shrink-0 flex-col border-t border-neutral-800 bg-neutral-900 lg:w-96 lg:border-l lg:border-t-0">
+        <aside
+          aria-label="Review panel"
+          className="flex w-full shrink-0 flex-col border-t border-neutral-800 bg-neutral-900 lg:w-96 lg:border-l lg:border-t-0"
+        >
           {caps.edit && (
-            <div className="flex border-b border-neutral-800">
+            <div role="tablist" aria-label="Panel" className="flex border-b border-neutral-800">
               {(["review", "edit"] as const).map((t) => (
                 <button
                   key={t}
+                  role="tab"
+                  aria-selected={tab === t}
                   onClick={() => setTab(t)}
                   className={`flex-1 px-4 py-3 text-xs font-medium capitalize ${
                     tab === t
@@ -556,7 +571,7 @@ function EditInput({
   onChange: (v: string) => void;
 }) {
   return (
-    <label className="block text-xs text-neutral-500">
+    <label className="block text-xs text-neutral-400">
       {label}
       <input
         value={value}
@@ -577,7 +592,7 @@ function EditArea({
   onChange: (v: string) => void;
 }) {
   return (
-    <label className="block text-xs text-neutral-500">
+    <label className="block text-xs text-neutral-400">
       {label}
       <textarea
         value={value}

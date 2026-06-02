@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import CopyLink from "@/components/CopyLink";
@@ -353,7 +353,10 @@ function SetRow({
   // Inline-editable name (click the title to rename — like the editor sidebar).
   const [name, setName] = useState(set.name);
   const [prevName, setPrevName] = useState(set.name);
-  if (set.name !== prevName) {
+  const nameFocused = useRef(false);
+  // Re-sync from the server, but never while you're typing (a realtime refresh
+  // landing mid-edit must not wipe your in-progress rename).
+  if (!nameFocused.current && set.name !== prevName) {
     setPrevName(set.name);
     setName(set.name);
   }
@@ -407,7 +410,13 @@ function SetRow({
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          onBlur={saveName}
+          onFocus={() => {
+            nameFocused.current = true;
+          }}
+          onBlur={() => {
+            nameFocused.current = false;
+            saveName();
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter") e.currentTarget.blur();
             if (e.key === "Escape") {
@@ -642,7 +651,7 @@ function Field({
   onChange: (v: string) => void;
 }) {
   return (
-    <label className="block text-xs text-neutral-500">
+    <label className="block text-xs text-neutral-400">
       {label}
       <input
         value={value}

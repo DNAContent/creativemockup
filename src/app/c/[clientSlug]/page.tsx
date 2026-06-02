@@ -37,7 +37,7 @@ export default async function ClientDashboard(props: {
         <form className="space-y-3 rounded-xl border border-neutral-800 bg-neutral-900 p-5">
           {/* Funnel all client sign-ins to the unified /c dashboard. */}
           <input type="hidden" name="next" value="/c" />
-          <label className="block text-xs text-neutral-500">
+          <label className="block text-xs text-neutral-400">
             Email
             <input
               name="email"
