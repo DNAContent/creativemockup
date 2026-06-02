@@ -75,6 +75,24 @@ button:not(:disabled):active {
   transform: translateY(0.5px);
 }
 
+/* Tailwind v4 drops the UA `cursor: pointer` on buttons — restore it for all
+   interactive controls, and show not-allowed on disabled ones. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+select:not(:disabled),
+summary,
+a[href],
+label:has(> input[type="checkbox"]),
+input[type="checkbox"]:not(:disabled),
+input[type="radio"]:not(:disabled) {
+  cursor: pointer;
+}
+button:disabled,
+select:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 /* Respect users who prefer less motion. */
 @media (prefers-reduced-motion: reduce) {
   *,
