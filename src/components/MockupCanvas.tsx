@@ -18,6 +18,8 @@ export type CanvasCreative = {
   media_img?: string;
   media_video?: string;
   aspect_ratio?: string;
+  creative_type?: string;
+  slides?: { img?: string; headline?: string; description?: string; cta?: string }[];
 };
 
 function toAd(c: CanvasCreative): Ad {
@@ -36,6 +38,8 @@ function toAd(c: CanvasCreative): Ad {
     mediaImg: c.media_img,
     mediaVideo: c.media_video,
     aspectRatio: c.aspect_ratio,
+    creativeType: c.creative_type,
+    slides: c.slides,
   };
 }
 

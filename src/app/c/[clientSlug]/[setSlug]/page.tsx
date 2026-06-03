@@ -38,24 +38,57 @@ export default async function ReviewPortal(props: {
 
   // Fetch the creatives AND this contact's capabilities in parallel — the caps
   // RPCs only need set.id, so they shouldn't wait on the larger creatives read.
+  //
+  // The creatives are read on their OWN (no embedded comments). Embedding
+  // comments(...replies(...)) makes PostgREST evaluate the client-side comment
+  // RLS as part of the same statement; if that errors, it nulls the ENTIRE
+  // result and the portal shows a set with no creatives. Comments are loaded
+  // separately below and merged, so a comment-read hiccup degrades to "no
+  // comments shown" instead of "nothing to review".
   const [
-    { data: creatives },
+    { data: creatives, error: creativesErr },
     { data: canComment },
     { data: canApprove },
     { data: canEdit },
   ] = await Promise.all([
     supabase
       .from("ads")
-      .select(
-        "*, comments(id,author,text,target,resolved,created_at, replies(id,author,text,created_at))",
-      )
+      .select("*")
       .eq("set_id", set.id)
       .order("position")
-      .returns<PortalCreative[]>(),
+      .returns<Omit<PortalCreative, "comments">[]>(),
     supabase.rpc("client_can_comment_set", { p_set_id: set.id }),
     supabase.rpc("client_can_approve_set", { p_set_id: set.id }),
     supabase.rpc("client_can_edit_set", { p_set_id: set.id }),
   ]);
+  if (creativesErr) console.error("portal: creatives read failed", creativesErr);
+
+  // Load comment threads for these creatives separately and group by ad.
+  const ads = creatives ?? [];
+  const byAd = new Map<string, PortalCreative["comments"]>();
+  if (ads.length > 0) {
+    const { data: comments, error: commentsErr } = await supabase
+      .from("comments")
+      .select(
+        "id,ad_id,author,text,target,resolved,created_at, replies(id,author,text,created_at)",
+      )
+      .in(
+        "ad_id",
+        ads.map((a) => a.id),
+      )
+      .order("created_at")
+      .returns<(PortalCreative["comments"][number] & { ad_id: string })[]>();
+    if (commentsErr) console.error("portal: comments read failed", commentsErr);
+    for (const { ad_id, ...c } of comments ?? []) {
+      const list = byAd.get(ad_id) ?? [];
+      list.push(c);
+      byAd.set(ad_id, list);
+    }
+  }
+  const initialCreatives: PortalCreative[] = ads.map((a) => ({
+    ...a,
+    comments: byAd.get(a.id) ?? [],
+  }));
 
   // The embedded relation may be typed as an object or a single-element array
   // depending on inference; normalize to one object.
@@ -77,7 +110,7 @@ export default async function ReviewPortal(props: {
         edit: !!canEdit,
       }}
       userEmail={user.email ?? ""}
-      initialCreatives={creatives ?? []}
+      initialCreatives={initialCreatives}
     />
   );
 }

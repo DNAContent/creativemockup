@@ -90,6 +90,21 @@ export interface Client {
   creative_sets?: CreativeSet[];
 }
 
+// One card in a carousel creative.
+export interface CarouselSlide {
+  img: string;
+  headline: string;
+  description: string;
+  cta: string;
+}
+
+export const EMPTY_SLIDE: CarouselSlide = {
+  img: "",
+  headline: "",
+  description: "",
+  cta: "",
+};
+
 export interface Creative {
   id: string;
   set_id: string;
@@ -109,7 +124,26 @@ export interface Creative {
   media_img: string;
   media_video: string;
   aspect_ratio: string;
+  // "single" (default) or "carousel" — see db/17. slides is the carousel cards.
+  creative_type: string;
+  slides: CarouselSlide[];
   created_at: string;
+}
+
+// Formats that can render as a carousel (the feed placements). Any other format
+// ignores creative_type and always renders as a single creative.
+export const CAROUSEL_FORMATS = new Set([
+  "fb-feed",
+  "fb-post",
+  "ig-post",
+  "ig-feed-ad",
+  "instagram",
+  "li-post",
+  "linkedin",
+]);
+
+export function formatSupportsCarousel(format: string): boolean {
+  return CAROUSEL_FORMATS.has(format);
 }
 
 // Creative formats — covers both paid ads and organic posts.
@@ -134,6 +168,41 @@ export const CREATIVE_FORMATS: { value: string; label: string }[] = [
   { value: "native-infeed", label: "Native — In-Feed" },
   { value: "native-widget", label: "Native — Widget" },
   { value: "blog", label: "Blog Post" },
+];
+
+// CTA button options each ad platform offers, for the editor's CTA dropdown.
+// (Mirrors what Meta / LinkedIn actually surface in their ad builders.)
+export const META_CTAS = [
+  "Learn More", "Shop Now", "Sign Up", "Subscribe", "Book Now", "Download",
+  "Get Offer", "Get Quote", "Contact Us", "Apply Now", "Send Message",
+  "Watch More", "Order Now", "Donate Now", "See Menu",
+];
+export const LINKEDIN_CTAS = [
+  "Learn More", "Sign Up", "Download", "Subscribe", "Register", "Apply Now",
+  "Request Demo", "Join", "Attend", "View Quote", "Visit Website",
+];
+export const GENERIC_CTAS = [
+  "Learn More", "Shop Now", "Sign Up", "Subscribe", "Download", "Get Offer",
+  "Get Quote", "Contact Us", "Apply Now", "Order Now", "Read More", "Get Started",
+];
+
+// Map a creative format to the CTA button options its platform provides.
+export function ctaOptionsForFormat(format: string): string[] {
+  if (format.startsWith("fb-") || format.startsWith("ig-") || format === "instagram")
+    return META_CTAS;
+  if (format.startsWith("li-") || format === "linkedin") return LINKEDIN_CTAS;
+  return GENERIC_CTAS;
+}
+
+// Aspect-ratio choices for the editor dropdown (every format that renders media
+// uses one). "Display dimensions" is the 1.91:1 landscape used by feed/display
+// link ads — distinct from a clean 16:9.
+export const ASPECT_RATIOS: { value: string; label: string }[] = [
+  { value: "4:5", label: "4:5 — Portrait" },
+  { value: "16:9", label: "16:9 — Landscape" },
+  { value: "9:16", label: "9:16 — Vertical" },
+  { value: "1:1", label: "1:1 — Square" },
+  { value: "1.91:1", label: "Display dimensions (1.91:1)" },
 ];
 
 // Which editable fields each format actually uses. Drives the editor form so it

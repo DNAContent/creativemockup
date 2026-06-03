@@ -24,6 +24,8 @@ export type CreativeEdit = Partial<
     | "media_img"
     | "media_video"
     | "aspect_ratio"
+    | "creative_type"
+    | "slides"
   >
 >;
 

@@ -1877,3 +1877,13 @@ begin
   return v_role;
 end;
 $$;
+
+-- ============================================================================
+-- 17_carousel.sql  (bundled)
+-- ============================================================================
+alter table public.ads
+  add column if not exists creative_type text not null default 'single'
+    check (creative_type in ('single','carousel'));
+
+alter table public.ads
+  add column if not exists slides jsonb not null default '[]'::jsonb;

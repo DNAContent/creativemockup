@@ -9,10 +9,18 @@ export type Ad = { [k: string]: any };
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 function getGDriveID(url) { const m = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/); return m ? m[1] : null; }
+// Google Drive "share" links (…/file/d/ID/view, open?id=ID, uc?id=ID) serve an
+// HTML page, not the image bytes — so <img src> can't load them. Rewrite to the
+// thumbnail endpoint, which returns the file itself and works cross-origin.
+function toDirectImage(url) {
+  if (!url || url.indexOf('drive.google.com') === -1) return url;
+  var m = url.match(/\/file\/d\/([a-zA-Z0-9_-]{10,})/) || url.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
+  return m ? 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w1920' : url;
+}
 function getVimeoID(url) { const m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/); return m ? m[1] : null; }
 
 function mediaHTML(ad, square) {
-  const imgURL = (ad.uploadedURL && ad.uploadedType === 'image') ? ad.uploadedURL : ad.mediaImg;
+  const imgURL = toDirectImage((ad.uploadedURL && ad.uploadedType === 'image') ? ad.uploadedURL : ad.mediaImg);
   const vidURL = ad.mediaVideo;
   const uploadedVid = (ad.uploadedURL && ad.uploadedType === 'video') ? ad.uploadedURL : null;
   const h = square ? 280 : 225;
@@ -35,14 +43,14 @@ function phHTML(cls, label) { return `<div class="${cls}"><i class="ti ti-photo"
 
 function avatarHTML(cls, ad) {
   const i = (ad.brandName || 'YB').split(' ').filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0,2);
-  if (ad.brandLogo) return `<div class="${cls}"><img src="${esc(ad.brandLogo)}" onerror="this.style.display='none'" alt="" /></div>`;
+  if (ad.brandLogo) return `<div class="${cls}"><img src="${esc(toDirectImage(ad.brandLogo))}" onerror="this.style.display='none'" alt="" /></div>`;
   return `<div class="${cls}">${esc(i)}</div>`;
 }
 
 
 /* ---- NEW MEDIA HELPERS ---- */
 function mediaInner(ad) {
-  var imgURL = (ad.uploadedURL && ad.uploadedType === 'image') ? ad.uploadedURL : (ad.mediaImg || '');
+  var imgURL = toDirectImage((ad.uploadedURL && ad.uploadedType === 'image') ? ad.uploadedURL : (ad.mediaImg || ''));
   var vidURL = ad.mediaVideo || '';
   var uploadedVid = (ad.uploadedURL && ad.uploadedType === 'video') ? ad.uploadedURL : null;
   if (imgURL) return '<img src="' + esc(imgURL) + '" style="width:100%;height:100%;object-fit:cover;display:block;" alt="" />';
@@ -67,7 +75,7 @@ function mediaBox(ad, containerClass, phClass, phLabel) {
 }
 
 function storyMediaHTML(ad) {
-  var imgURL = (ad.uploadedURL && ad.uploadedType === 'image') ? ad.uploadedURL : (ad.mediaImg || '');
+  var imgURL = toDirectImage((ad.uploadedURL && ad.uploadedType === 'image') ? ad.uploadedURL : (ad.mediaImg || ''));
   var vidURL = ad.mediaVideo || '';
   var uploadedVid = (ad.uploadedURL && ad.uploadedType === 'video') ? ad.uploadedURL : null;
   if (imgURL) return '<img class="story-bg" src="' + esc(imgURL) + '" alt="" />';
@@ -100,18 +108,60 @@ function smText(text, field, fmt) {
   return esc(text.slice(0, cut)) + '<span class="see-more-btn ' + cfg.cls + '">... ' + cfg.label + '</span>';
 }
 
+// Carousel formats (mirror CAROUSEL_FORMATS in types.ts). Other formats ignore
+// creative_type and render as a single creative.
+var CAROUSEL_OK = { 'fb-feed':1, 'fb-post':1, 'ig-post':1, 'ig-feed-ad':1, 'instagram':1, 'li-post':1, 'linkedin':1 };
+
+// A horizontal strip of carousel cards (image + optional headline/desc/CTA bar),
+// used in place of the single media box for carousel creatives.
+function carouselHTML(ad) {
+  var slides = Array.isArray(ad.slides) ? ad.slides : [];
+  var ar = (ad.aspectRatio || '1:1').replace(':', '/');
+  if (!slides.length) {
+    return '<div style="padding:0 12px;"><div style="aspect-ratio:' + ar + ';display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;background:#ececec;color:#aaa;border-radius:10px;"><i class="ti ti-carousel-horizontal" style="font-size:30px"></i><span style="font-size:13px">Add carousel slides</span></div></div>';
+  }
+  var cards = slides.map(function (s) {
+    var img = toDirectImage(s.img || '');
+    var media = img
+      ? '<img src="' + esc(img) + '" style="width:100%;height:100%;object-fit:cover;display:block;" alt="" />'
+      : '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#ececec;color:#bbb;"><i class="ti ti-photo" style="font-size:26px"></i></div>';
+    var bar = (s.headline || s.description || s.cta)
+      ? '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:#f7f8fa;border-top:1px solid #e4e6eb;">'
+          + '<div style="min-width:0;flex:1;">'
+            + (s.headline ? '<div style="font-weight:600;font-size:13px;color:#050505;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(s.headline) + '</div>' : '')
+            + (s.description ? '<div style="font-size:12px;color:#65676b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(s.description) + '</div>' : '')
+          + '</div>'
+          + (s.cta ? '<button style="flex:0 0 auto;border:none;background:#e4e6eb;border-radius:6px;padding:7px 12px;font-size:12px;font-weight:600;color:#050505;">' + esc(s.cta) + '</button>' : '')
+        + '</div>'
+      : '';
+    return '<div style="flex:0 0 86%;scroll-snap-align:center;border-radius:10px;overflow:hidden;border:1px solid #dadde1;background:#fff;">'
+      + '<div style="aspect-ratio:' + ar + ';position:relative;overflow:hidden;background:#000;">' + media + '</div>'
+      + bar
+      + '</div>';
+  }).join('');
+  var dots = slides.map(function (_s, i) {
+    return '<span style="width:6px;height:6px;border-radius:50%;display:inline-block;background:' + (i === 0 ? '#1877f2' : '#c9ccd1') + ';"></span>';
+  }).join('');
+  return '<div style="position:relative;">'
+    + '<div style="display:flex;gap:8px;overflow-x:auto;padding:2px 12px 6px;scroll-snap-type:x mandatory;">' + cards + '</div>'
+    + '<div style="display:flex;gap:5px;justify-content:center;padding:6px 0 2px;">' + dots + '</div>'
+    + '</div>';
+}
+
 export function renderMockup(ad: Ad): string {
   const fmt = ad.format;
   const name = ad.brandName || 'Your Brand';
+  const useCarousel = ad.creativeType === 'carousel' && CAROUSEL_OK[fmt];
 
   if (fmt === 'fb-feed' || fmt === 'fb-post') {
     var fbOrganic = fmt === 'fb-post';
     var fbSponsorLine = fbOrganic ? 'Just now &nbsp;&middot;&nbsp; <i class="ti ti-world" style="font-size:11px"></i>' : 'Sponsored &nbsp;&middot;&nbsp; <i class="ti ti-world" style="font-size:11px"></i>';
     var fbCtaBar = fbOrganic ? '' : '<div class="fb-cta-bar"><div class="fb-cta-info"><div class="fb-cta-url">yourbrand.com</div><div class="fb-cta-headline">' + esc(ad.headline) + '</div>' + (ad.desc ? '<div class="fb-cta-desc">' + esc(ad.desc) + '</div>' : '') + '</div><div class="fb-cta-btn">' + esc(ad.cta) + '</div></div>';
+    if (useCarousel) fbCtaBar = '';  // each carousel card carries its own headline/CTA
     return '<div id="zoom-target"><div class="fb-card">' +
       '<div class="fb-header">' + avatarHTML('fb-avatar', ad) + '<div class="fb-meta"><div class="fb-name">' + esc(name) + '</div><div class="fb-sponsored">' + fbSponsorLine + '</div></div><div class="fb-more">...</div></div>' +
       (ad.copy ? '<div class="fb-copy">' + smText(ad.copy, 'copy', fmt) + '</div>' : '') +
-      mediaBox(ad, 'fb-media', 'fb-media-ph', 'Add image or video') +
+      (useCarousel ? carouselHTML(ad) : mediaBox(ad, 'fb-media', 'fb-media-ph', 'Add image or video')) +
       fbCtaBar +
       '<div class="fb-actions"><div class="fb-action"><i class="ti ti-thumb-up"></i> Like</div><div class="fb-action"><i class="ti ti-message-circle"></i> Comment</div><div class="fb-action"><i class="ti ti-share"></i> Share</div></div>' +
     '</div></div>';
@@ -130,7 +180,7 @@ export function renderMockup(ad: Ad): string {
     var igSponsored = fmt === 'ig-feed-ad';
     return '<div id="zoom-target"><div class="insta-card">' +
       '<div class="insta-header">' + avatarHTML('insta-avatar', ad) + '<div class="insta-username">' + esc(name) + '</div><div class="insta-sponsored-tag">' + (igSponsored ? 'Sponsored' : '') + '</div></div>' +
-      mediaBox(ad, 'insta-media', 'insta-media-ph', 'Add image or video') +
+      (useCarousel ? carouselHTML(ad) : mediaBox(ad, 'insta-media', 'insta-media-ph', 'Add image or video')) +
       '<div class="insta-actions"><i class="ti ti-heart insta-action-i"></i><i class="ti ti-message-circle insta-action-i"></i><i class="ti ti-send insta-action-i"></i></div>' +
       (ad.copy ? '<div class="insta-caption"><strong>' + esc(name) + '</strong> ' + smText(ad.copy, 'copy', fmt) + '</div>' : '') +
       '<div class="insta-cta-link">' + esc(ad.headline) + '</div>' +
@@ -139,7 +189,7 @@ export function renderMockup(ad: Ad): string {
     } else if (fmt === 'instagram') {
     return `<div id="zoom-target"><div class="insta-card">
       <div class="insta-header">${avatarHTML('insta-avatar', ad)}<div class="insta-username">${esc(name)}</div><div class="insta-sponsored-tag">Sponsored</div></div>
-      ${mediaBox(ad, 'insta-media', 'insta-media-ph', 'Add image or video')}
+      ${useCarousel ? carouselHTML(ad) : mediaBox(ad, 'insta-media', 'insta-media-ph', 'Add image or video')}
       <div class="insta-actions"><i class="ti ti-heart insta-action-i"></i><i class="ti ti-message-circle insta-action-i"></i><i class="ti ti-send insta-action-i"></i></div>
       ${ad.copy ? `<div class="insta-caption"><strong>${esc(name)}</strong> ${smText(ad.copy, 'copy', fmt)}</div>` : ''}
       <div class="insta-cta-link">${esc(ad.headline)}</div>
@@ -149,7 +199,7 @@ export function renderMockup(ad: Ad): string {
     return '<div id="zoom-target"><div class="li-card">' +
       '<div class="li-header">' + avatarHTML('li-avatar', ad) + '<div class="li-meta"><div class="li-name">' + esc(name) + '</div><div class="li-title">Just now · <i class="ti ti-world" style="font-size:11px;vertical-align:-1px"></i></div></div><div class="li-more">...</div></div>' +
       (ad.copy ? '<div class="li-copy">' + smText(ad.copy, 'copy', fmt) + '</div>' : '') +
-      mediaBox(ad, 'li-media', 'li-media-ph', 'Add image or video') +
+      (useCarousel ? carouselHTML(ad) : mediaBox(ad, 'li-media', 'li-media-ph', 'Add image or video')) +
       '<div class="li-actions"><div class="li-action"><i class="ti ti-thumb-up"></i> Like</div><div class="li-action"><i class="ti ti-message-circle"></i> Comment</div><div class="li-action"><i class="ti ti-repeat"></i> Repost</div><div class="li-action"><i class="ti ti-send"></i> Send</div></div>' +
     '</div></div>';
 
@@ -157,8 +207,8 @@ export function renderMockup(ad: Ad): string {
     return `<div id="zoom-target"><div class="li-card">
       <div class="li-header">${avatarHTML('li-avatar', ad)}<div class="li-meta"><div class="li-name">${esc(name)}</div><div class="li-title">Sponsored · <i class="ti ti-world" style="font-size:11px;vertical-align:-1px"></i></div></div><div class="li-more">···</div></div>
       ${ad.copy ? `<div class="li-copy">${smText(ad.copy, 'copy', fmt)}</div>` : ''}
-      ${mediaBox(ad, 'li-media', 'li-media-ph', 'Add image or video')}
-      <div class="li-cta-bar"><div class="li-cta-info"><div class="li-cta-headline">${esc(ad.headline)}</div>${ad.desc ? `<div class="li-cta-desc">${esc(ad.desc)}</div>` : ''}</div><button class="li-cta-btn">${esc(ad.cta)}</button></div>
+      ${useCarousel ? carouselHTML(ad) : mediaBox(ad, 'li-media', 'li-media-ph', 'Add image or video')}
+      ${useCarousel ? '' : `<div class="li-cta-bar"><div class="li-cta-info"><div class="li-cta-headline">${esc(ad.headline)}</div>${ad.desc ? `<div class="li-cta-desc">${esc(ad.desc)}</div>` : ''}</div><button class="li-cta-btn">${esc(ad.cta)}</button></div>`}
       <div class="li-actions"><div class="li-action"><i class="ti ti-thumb-up"></i> Like</div><div class="li-action"><i class="ti ti-message-circle"></i> Comment</div><div class="li-action"><i class="ti ti-repeat"></i> Repost</div><div class="li-action"><i class="ti ti-send"></i> Send</div></div>
     </div></div>`;
 
@@ -221,7 +271,7 @@ export function renderMockup(ad: Ad): string {
         </div>
         <div class="ig-story-header">
           <div class="ig-story-avatar"><div class="ig-story-avatar-inner">
-            ${ad.brandLogo ? `<img src="${esc(ad.brandLogo)}" alt="" />` : esc(initials)}
+            ${ad.brandLogo ? `<img src="${esc(toDirectImage(ad.brandLogo))}" alt="" />` : esc(initials)}
           </div></div>
           <div><div class="ig-story-name">${esc(name)}</div><div class="ig-story-tag">Sponsored</div></div>
         </div>
@@ -256,7 +306,7 @@ export function renderMockup(ad: Ad): string {
   } else if (fmt.startsWith('display-')) {
     const inner = mediaInner(ad);
     const imgPH = '<div class="display-img-ph"><i class="ti ti-photo" style="font-size:22px"></i></div>';
-    const logo = ad.brandLogo ? `<img src="${esc(ad.brandLogo)}" alt="" />` : '';
+    const logo = ad.brandLogo ? `<img src="${esc(toDirectImage(ad.brandLogo))}" alt="" />` : '';
     const dims = {'display-leaderboard':'728 × 90','display-mrec':'300 × 250','display-halfpage':'300 × 600','display-mobile':'320 × 50'};
     const unitClass = {'display-leaderboard':'display-leaderboard-unit','display-mrec':'display-mrec-unit','display-halfpage':'display-halfpage-unit','display-mobile':'display-mobile-unit'};
     const isHoriz = fmt === 'display-leaderboard' || fmt === 'display-mobile';

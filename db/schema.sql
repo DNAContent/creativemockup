@@ -101,6 +101,11 @@ create table if not exists public.ads (
   media_img       text not null default '',
   media_video     text not null default '',
   aspect_ratio    text not null default '16:9',
+  -- single image/video (default) or a multi-slide carousel (db/17). slides is
+  -- an ordered array of { img, headline, description, cta } cards.
+  creative_type   text not null default 'single'
+                    check (creative_type in ('single','carousel')),
+  slides          jsonb not null default '[]'::jsonb,
   created_at      timestamptz not null default now()
 );
 create index if not exists ads_set_idx on public.ads(set_id, position);

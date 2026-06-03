@@ -10,10 +10,15 @@ import ZoomBar from "@/components/ZoomBar";
 import ActionButton from "@/components/ActionButton";
 import { PlusIcon, Spinner } from "@/components/icons";
 import {
+  ASPECT_RATIOS,
   CREATIVE_FORMATS,
+  ctaOptionsForFormat,
   DEFAULT_FORMAT_FIELDS,
+  EMPTY_SLIDE,
   FORMAT_FIELDS,
+  formatSupportsCarousel,
   SET_STATUS_LABELS,
+  type CarouselSlide,
   type Creative,
   type CreativeStatus,
   type ReviewComment,
@@ -40,7 +45,7 @@ export type EditorCreative = Creative & { comments: ReviewComment[] };
 const EDIT_KEYS: (keyof CreativeEdit)[] = [
   "name", "format", "status", "brand_name", "brand_logo", "copy", "headline",
   "description", "cta", "email_subject", "email_preheader", "email_body",
-  "media_img", "media_video", "aspect_ratio",
+  "media_img", "media_video", "aspect_ratio", "creative_type", "slides",
 ];
 
 // Only the fields that actually changed since the last saved baseline. Sending
@@ -157,6 +162,10 @@ export default function EditorClient({
 
   function field<K extends keyof EditorCreative>(key: K, value: EditorCreative[K]) {
     setDraft((d) => (d ? { ...d, [key]: value } : d));
+  }
+  // Update several fields at once (e.g. flipping to a carousel seeds its slides).
+  function patchDraft(patch: Partial<EditorCreative>) {
+    setDraft((d) => (d ? { ...d, ...patch } : d));
   }
 
   // flush = a background save of the OUTGOING creative on switch; it must not
@@ -453,7 +462,7 @@ export default function EditorClient({
           {!draft || !selected ? (
             <p className="text-xs text-neutral-400">Nothing selected.</p>
           ) : tab === "edit" ? (
-            <EditPanel draft={draft} field={field} setHl={setHl} />
+            <EditPanel draft={draft} field={field} patchDraft={patchDraft} setHl={setHl} />
           ) : (
             <ReviewList
               setId={setId}
@@ -494,21 +503,51 @@ export default function EditorClient({
 function EditPanel({
   draft,
   field,
+  patchDraft,
   setHl,
 }: {
   draft: EditorCreative;
   field: <K extends keyof EditorCreative>(k: K, v: EditorCreative[K]) => void;
+  patchDraft: (patch: Partial<EditorCreative>) => void;
   setHl: (f: string | null) => void;
 }) {
+  const canCarousel = formatSupportsCarousel(draft.format);
+  const isCarousel = canCarousel && draft.creative_type === "carousel";
   // The inputs to show depend on the format — only the fields this format
   // actually renders (see FORMAT_FIELDS). Switching format never deletes data;
-  // hidden fields keep their values for when you switch back.
-  const fields = FORMAT_FIELDS[draft.format] ?? DEFAULT_FORMAT_FIELDS;
+  // hidden fields keep their values for when you switch back. In carousel mode
+  // the per-card fields (image/headline/desc/CTA) move into the slides editor.
+  const perSlideKeys = new Set([
+    "headline", "description", "cta", "media_img", "media_video",
+  ]);
+  const baseFields = FORMAT_FIELDS[draft.format] ?? DEFAULT_FORMAT_FIELDS;
+  const fields = isCarousel
+    ? baseFields.filter((f) => !perSlideKeys.has(f.key))
+    : baseFields;
   // Highlight the matching mockup element while a field is focused.
   const hl = (f: string) => ({
     onFocus: () => setHl(f),
     onBlur: () => setHl(null),
   });
+  // Flip single <-> carousel. First switch to carousel seeds one slide from the
+  // existing single-creative fields so nothing's lost and the preview isn't empty.
+  function changeType(v: string) {
+    if (v === "carousel" && (draft.slides?.length ?? 0) === 0) {
+      patchDraft({
+        creative_type: v,
+        slides: [
+          {
+            img: draft.media_img,
+            headline: draft.headline,
+            description: draft.description,
+            cta: draft.cta,
+          },
+        ],
+      });
+    } else {
+      patchDraft({ creative_type: v });
+    }
+  }
   return (
     <div className="space-y-3">
       <Text label="Name" value={draft.name} onChange={(v) => field("name", v)} />
@@ -518,6 +557,17 @@ function EditPanel({
         onChange={(v) => field("format", v)}
         options={CREATIVE_FORMATS}
       />
+      {canCarousel && (
+        <Select
+          label="Type"
+          value={draft.creative_type || "single"}
+          onChange={changeType}
+          options={[
+            { value: "single", label: "Single creative" },
+            { value: "carousel", label: "Carousel" },
+          ]}
+        />
+      )}
       <Select
         label="Status"
         value={draft.status}
@@ -529,8 +579,44 @@ function EditPanel({
         ]}
       />
 
+      {isCarousel && (
+        <SlidesEditor
+          format={draft.format}
+          slides={draft.slides ?? []}
+          onChange={(next) => field("slides", next)}
+        />
+      )}
+
       {fields.map((f) =>
-        f.area ? (
+        f.key === "cta" ? (
+          <Select
+            key={f.key}
+            label={f.label}
+            value={draft.cta}
+            onChange={(v) => field("cta", v)}
+            options={ctaSelectOptions(draft.format, draft.cta)}
+            {...hl(f.key)}
+          />
+        ) : f.key === "aspect_ratio" ? (
+          <Select
+            key={f.key}
+            label={f.label}
+            value={draft.aspect_ratio}
+            onChange={(v) => field("aspect_ratio", v)}
+            options={aspectSelectOptions(draft.aspect_ratio)}
+            {...hl(f.key)}
+          />
+        ) : f.key === "media_img" ? (
+          <div key={f.key}>
+            <Text
+              label={f.label}
+              value={draft.media_img}
+              onChange={(v) => field("media_img", v)}
+              {...hl("media_img")}
+            />
+            <DriveHint />
+          </div>
+        ) : f.area ? (
           <Area
             key={f.key}
             label={f.label}
@@ -679,6 +765,127 @@ function CommentRow({
   );
 }
 
+function DriveHint() {
+  return (
+    <p className="mt-1 text-[11px] leading-snug text-neutral-500">
+      Tip: paste a Google Drive share link — we convert it automatically. Set the
+      file’s sharing to “Anyone with the link”.
+    </p>
+  );
+}
+
+// Carousel slides editor: add / remove / reorder cards, each with its own image,
+// headline, CTA and description. Edits replace the whole slides array (immutable
+// update) so the draft's change-detection / autosave picks them up.
+function SlidesEditor({
+  format,
+  slides,
+  onChange,
+}: {
+  format: string;
+  slides: CarouselSlide[];
+  onChange: (next: CarouselSlide[]) => void;
+}) {
+  const set = (i: number, key: keyof CarouselSlide, v: string) =>
+    onChange(slides.map((s, idx) => (idx === i ? { ...s, [key]: v } : s)));
+  const add = () => onChange([...slides, { ...EMPTY_SLIDE }]);
+  const remove = (i: number) => onChange(slides.filter((_, idx) => idx !== i));
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= slides.length) return;
+    const next = [...slides];
+    [next[i], next[j]] = [next[j], next[i]];
+    onChange(next);
+  };
+  return (
+    <div className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-2.5">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs font-medium text-neutral-300">
+          Carousel slides ({slides.length})
+        </span>
+      </div>
+      {slides.length === 0 ? (
+        <p className="mb-2 text-[11px] text-neutral-500">No slides yet.</p>
+      ) : (
+        slides.map((s, i) => (
+          <div
+            key={i}
+            className="mb-2 rounded-lg border border-neutral-800 p-2.5"
+          >
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="text-[11px] font-medium text-neutral-400">
+                Slide {i + 1}
+              </span>
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={() => move(i, -1)}
+                  disabled={i === 0}
+                  aria-label="Move slide up"
+                  className="px-1.5 py-0.5 text-xs leading-none text-neutral-500 hover:text-neutral-200 disabled:opacity-30"
+                >
+                  ▲
+                </button>
+                <button
+                  onClick={() => move(i, 1)}
+                  disabled={i === slides.length - 1}
+                  aria-label="Move slide down"
+                  className="px-1.5 py-0.5 text-xs leading-none text-neutral-500 hover:text-neutral-200 disabled:opacity-30"
+                >
+                  ▼
+                </button>
+                <button
+                  onClick={() => remove(i)}
+                  aria-label="Remove slide"
+                  className="ml-1 px-1.5 py-0.5 text-xs leading-none text-red-400 hover:text-red-300"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Text label="Image URL" value={s.img} onChange={(v) => set(i, "img", v)} />
+              <Text label="Headline" value={s.headline} onChange={(v) => set(i, "headline", v)} />
+              <Text label="Description" value={s.description} onChange={(v) => set(i, "description", v)} />
+              <Select
+                label="Call to action"
+                value={s.cta}
+                onChange={(v) => set(i, "cta", v)}
+                options={ctaSelectOptions(format, s.cta)}
+              />
+            </div>
+          </div>
+        ))
+      )}
+      <DriveHint />
+      <button
+        onClick={add}
+        className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-2 text-xs font-medium text-neutral-200 hover:bg-neutral-800"
+      >
+        <PlusIcon className="h-3.5 w-3.5" /> Add slide
+      </button>
+    </div>
+  );
+}
+
+// CTA dropdown options for the creative's platform, plus a "None" choice and
+// (if the saved value isn't one of the platform's standard buttons) the current
+// custom value, so switching to a dropdown never silently drops existing copy.
+function ctaSelectOptions(format: string, current: string) {
+  const base = ctaOptionsForFormat(format).map((v) => ({ value: v, label: v }));
+  const opts = [{ value: "", label: "— None —" }, ...base];
+  if (current && !base.some((o) => o.value === current))
+    opts.push({ value: current, label: `${current} (custom)` });
+  return opts;
+}
+
+// Aspect-ratio dropdown options; preserves any pre-existing custom ratio.
+function aspectSelectOptions(current: string) {
+  const opts = [...ASPECT_RATIOS];
+  if (current && !opts.some((o) => o.value === current))
+    opts.unshift({ value: current, label: `${current} (custom)` });
+  return opts;
+}
+
 function statusDot(status: string) {
   if (status === "approved") return "bg-green-500";
   if (status === "needs-edits") return "bg-red-500";
@@ -747,11 +954,15 @@ function Select({
   value,
   onChange,
   options,
+  onFocus,
+  onBlur,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
+  onFocus?: () => void;
+  onBlur?: () => void;
 }) {
   return (
     <label className="block text-xs text-neutral-400">
@@ -759,6 +970,8 @@ function Select({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onFocus={onFocus}
+        onBlur={onBlur}
         className="mt-1 w-full rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-100"
       >
         {options.map((o) => (
