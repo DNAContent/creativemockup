@@ -54,15 +54,19 @@ function mediaInner(ad) {
   var vidURL = ad.mediaVideo || '';
   var uploadedVid = (ad.uploadedURL && ad.uploadedType === 'video') ? ad.uploadedURL : null;
   if (imgURL) return '<img src="' + esc(imgURL) + '" style="width:100%;height:100%;object-fit:cover;display:block;" alt="" />';
-  if (uploadedVid) return '<video src="' + uploadedVid + '" controls style="width:100%;height:100%;object-fit:cover;display:block;"></video>';
+  // Video is wrapped in a vertically-centered frame (.media-vid-wrap) so a
+  // landscape clip letterboxes SYMMETRICALLY rather than being top-aligned with
+  // black above it. Iframe embeds have no intrinsic aspect, so they ride inside
+  // a 16:9 .media-vid-frame; a real <video> knows its own ratio (object-fit).
+  if (uploadedVid) return '<div class="media-vid-wrap"><video src="' + uploadedVid + '" controls></video></div>';
   if (vidURL) {
     var yt = vidURL.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
-    if (yt) return '<iframe src="https://www.youtube.com/embed/' + yt[1] + '" frameborder="0" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:none;"></iframe>';
+    if (yt) return '<div class="media-vid-wrap"><div class="media-vid-frame"><iframe src="https://www.youtube.com/embed/' + yt[1] + '" frameborder="0" allowfullscreen></iframe></div></div>';
     var gd = getGDriveID(vidURL);
-    if (gd) return '<iframe src="https://drive.google.com/file/d/' + gd + '/preview" frameborder="0" allowfullscreen allow="autoplay" style="position:absolute;inset:0;width:100%;height:100%;border:none;"></iframe>';
+    if (gd) return '<div class="media-vid-wrap"><div class="media-vid-frame"><iframe src="https://drive.google.com/file/d/' + gd + '/preview" frameborder="0" allowfullscreen allow="autoplay"></iframe></div></div>';
     var vi = getVimeoID(vidURL);
-    if (vi) return '<iframe src="https://player.vimeo.com/video/' + vi + '" frameborder="0" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:none;"></iframe>';
-    return '<video src="' + esc(vidURL) + '" controls style="width:100%;height:100%;object-fit:cover;display:block;"></video>';
+    if (vi) return '<div class="media-vid-wrap"><div class="media-vid-frame"><iframe src="https://player.vimeo.com/video/' + vi + '" frameborder="0" allowfullscreen></iframe></div></div>';
+    return '<div class="media-vid-wrap"><video src="' + esc(vidURL) + '" controls></video></div>';
   }
   return null;
 }
