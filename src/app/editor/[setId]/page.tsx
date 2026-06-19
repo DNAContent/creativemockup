@@ -18,6 +18,17 @@ export default async function EditorPage(props: {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // Staff-only surface. RLS already blocks client-tier writes, but an
+  // allowlisted client could otherwise SELECT a set and load the editor UI.
+  // Require agency membership and send everyone else through "/", which
+  // enrolls real staff and bounces clients to their /c portal.
+  const { data: membership } = await supabase
+    .from("agency_members")
+    .select("agency_id")
+    .limit(1)
+    .maybeSingle();
+  if (!membership) redirect("/");
+
   const { data: set } = await supabase
     .from("creative_sets")
     .select("id,name,slug,status,clients(id,name,slug)")

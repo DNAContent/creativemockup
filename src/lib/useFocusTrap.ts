@@ -22,24 +22,38 @@ export function useFocusTrap<T extends HTMLElement>(active = true) {
 
     focusables()[0]?.focus();
 
+    // Listen at the document level (not on the dialog node) so Tab is still
+    // intercepted if focus ever escapes the dialog — otherwise the keydown
+    // never reaches a node-scoped listener and focus leaks to the page behind.
     function onKey(e: KeyboardEvent) {
       if (e.key !== "Tab") return;
       const els = focusables();
-      if (els.length === 0) return;
+      if (els.length === 0) {
+        e.preventDefault(); // nothing focusable inside — don't let Tab escape
+        return;
+      }
       const first = els[0];
       const last = els[els.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
+      const active = document.activeElement as HTMLElement | null;
+      const idx = active ? els.indexOf(active) : -1;
+      // Focus is outside the dialog (escaped, or never entered): pull it back in.
+      if (idx === -1) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+        return;
+      }
+      if (e.shiftKey && active === first) {
         e.preventDefault();
         last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
+      } else if (!e.shiftKey && active === last) {
         e.preventDefault();
         first.focus();
       }
     }
 
-    node.addEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey, true);
     return () => {
-      node.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey, true);
       previouslyFocused?.focus?.();
     };
   }, [active]);

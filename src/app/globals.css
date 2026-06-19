@@ -6,11 +6,35 @@
   --foreground: #ededed;
 }
 
+/* Semantic design tokens — the single source of truth for brand, surfaces, and
+   status colors so the palette can't drift across files (was: indigo-600 /
+   neutral-900 / green-amber-red repeated as raw utilities everywhere). These
+   generate Tailwind utilities (e.g. bg-primary, text-on-surface, border-subtle)
+   and CSS vars usable directly. Values match the existing visual identity. */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Brand */
+  --color-primary: #4f46e5;        /* indigo-600 */
+  --color-primary-hover: #4338ca;  /* indigo-700 */
+  --color-on-primary: #ffffff;
+  --color-ring: #818cf8;           /* indigo-400 — keyboard focus */
+
+  /* Surfaces & lines */
+  --color-surface: #171717;        /* neutral-900 — cards, headers, panels */
+  --color-surface-2: #0a0a0a;      /* neutral-950 — recessed rails */
+  --color-border-subtle: #262626;  /* neutral-800 */
+
+  /* Text */
+  --color-muted-foreground: #a3a3a3; /* neutral-400 — secondary text, ≥4.5:1 on #0a0a0a */
+
+  /* Status (functional color is always paired with a text label in the UI) */
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
 }
 
 body {
@@ -30,9 +54,12 @@ select {
   background-color: #0a0a0a;
   color: var(--foreground);
 }
+/* Placeholder text. Bumped from #6b7280 (~4.0:1 on #0a0a0a — fails WCAG AA) to
+   neutral-400 (~6.4:1). Several inputs use the placeholder as their only visible
+   hint, so it has to be readable. */
 input::placeholder,
 textarea::placeholder {
-  color: #6b7280;
+  color: #9ca3af;
 }
 
 /* Secondary buttons rely on borders + hover and have no bg utility; keep their

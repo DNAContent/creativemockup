@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { HelixLogo, Spinner } from "@/components/icons";
 import { requestAccessOrSignIn } from "./actions";
 
 // Email gate: enter email -> if allowlisted, a magic link is sent; otherwise an
@@ -53,8 +54,10 @@ export default function Gate({
 
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-6 py-16">
-      <h1 className="mb-1 text-xl font-semibold">📐 Creative review</h1>
-      <p className="mb-6 text-sm text-neutral-500">
+      <h1 className="mb-1 flex items-center gap-2 text-xl font-semibold">
+        <HelixLogo className="h-5 w-5 text-indigo-400" /> Creative review
+      </h1>
+      <p className="mb-6 text-sm text-neutral-400">
         {deniedEmail
           ? `${deniedEmail} doesn't have access to this review. Request access below.`
           : "Enter your email to access this review."}
@@ -93,9 +96,15 @@ export default function Gate({
 
         <button
           disabled={state === "sending"}
-          className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
         >
-          {state === "sending" ? "…" : "Continue"}
+          {state === "sending" ? (
+            <>
+              <Spinner className="h-4 w-4" /> Sending…
+            </>
+          ) : (
+            "Continue"
+          )}
         </button>
       </form>
     </main>

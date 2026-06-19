@@ -32,12 +32,37 @@ export const SET_STATUS_PILL: Record<SetStatus, string> = {
 
 export type CreativeStatus = "pending" | "approved" | "needs-edits";
 
-// Distinct pill colors per creative status.
+// Human labels per creative status, for UI text and accessible names (so the
+// status dots aren't conveyed by color alone — WCAG 1.4.1 / 1.1.1).
+export const CREATIVE_STATUS_LABELS: Record<CreativeStatus, string> = {
+  pending: "Pending review",
+  approved: "Approved",
+  "needs-edits": "Needs edits",
+};
+
+// Single source of truth for creative-status colors (was duplicated as a
+// `statusDot()` in both the editor and the portal, and the dot disagreed with
+// the amber "Request edits" button — now unified on amber). One concept, one
+// color: neutral = pending, green = approved, amber = changes requested.
 export const CREATIVE_STATUS_PILL: Record<CreativeStatus, string> = {
   pending: "bg-neutral-700/40 text-neutral-300",
   approved: "bg-green-500/15 text-green-300",
-  "needs-edits": "bg-red-500/15 text-red-300",
+  "needs-edits": "bg-amber-500/15 text-amber-300",
 };
+
+export const CREATIVE_STATUS_DOT: Record<CreativeStatus, string> = {
+  pending: "bg-neutral-600",
+  approved: "bg-green-500",
+  "needs-edits": "bg-amber-500",
+};
+
+export function creativeStatusDot(status: string): string {
+  return CREATIVE_STATUS_DOT[status as CreativeStatus] ?? "bg-neutral-600";
+}
+
+export function creativeStatusLabel(status: string): string {
+  return CREATIVE_STATUS_LABELS[status as CreativeStatus] ?? status;
+}
 
 export type CommentTarget =
   | "General"

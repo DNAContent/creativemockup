@@ -9,26 +9,38 @@ const PATH = "/settings/team";
 // All team actions resolve to this shape so callers can read `.error` uniformly.
 type ActionResult = { error?: string };
 
+// Pragmatic email check — enough to reject empty/garbage before it becomes a
+// junk allowlist row that can never receive a magic link.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export async function addContact(
   clientId: string,
   email: string,
   caps: ContactCaps,
   name?: string,
 ): Promise<ActionResult> {
+  const clean = email.trim().toLowerCase();
+  if (!EMAIL_RE.test(clean)) return { error: "Enter a valid email address." };
+
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   const { error } = await supabase.from("client_contacts").insert({
     client_id: clientId,
-    email: email.trim().toLowerCase(),
+    email: clean,
     name: name?.trim() || null,
     can_comment: caps.can_comment,
     can_approve: caps.can_approve,
     can_edit: caps.can_edit,
     invited_by: user?.id ?? null,
   });
-  if (error) return { error: error.message };
+  if (error) {
+    // 23505 = unique-violation: this email is already a contact on this client.
+    if (error.code === "23505")
+      return { error: "That email is already a contact for this client." };
+    return { error: error.message };
+  }
   revalidatePath(PATH);
   return {};
 }
@@ -72,7 +84,7 @@ export async function grantRequest(
 
   const { data: req, error: reqErr } = await supabase
     .from("access_requests")
-    .select("email, status, creative_sets(client_id)")
+    .select("email, status, creative_sets(client_id, slug, clients(slug))")
     .eq("id", requestId)
     .maybeSingle();
   if (reqErr) return { error: reqErr.message };
@@ -84,11 +96,14 @@ export async function grantRequest(
     return {};
   }
 
-  const rel = req.creative_sets as
-    | { client_id: string }
-    | { client_id: string }[]
-    | null;
-  const clientId = Array.isArray(rel) ? rel[0]?.client_id : rel?.client_id;
+  type SetRel = {
+    client_id: string;
+    slug: string | null;
+    clients: { slug: string | null } | { slug: string | null }[] | null;
+  };
+  const rel = req.creative_sets as SetRel | SetRel[] | null;
+  const set = Array.isArray(rel) ? rel[0] : rel;
+  const clientId = set?.client_id;
   if (!clientId) return { error: "Could not resolve client for request." };
 
   // Upsert the contact: if they're already on this client (e.g. requested
@@ -111,6 +126,28 @@ export async function grantRequest(
     .update({ status: "granted" })
     .eq("id", requestId);
   if (error) return { error: error.message };
+
+  // Send the sign-in link the Gate promised ("you'll get a link by email").
+  // Magic links go through Supabase Auth email (not the SendGrid notify stub),
+  // so this works wherever client magic-link sign-in works. Best-effort: the
+  // grant itself already succeeded, so a send failure only warns.
+  const clientSlug = Array.isArray(set?.clients)
+    ? set?.clients[0]?.slug
+    : set?.clients?.slug;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  const emailRedirectTo =
+    siteUrl && clientSlug && set?.slug
+      ? `${siteUrl}/auth/callback?next=/c/${clientSlug}/${set.slug}`
+      : undefined;
+  const { error: otpErr } = await supabase.auth.signInWithOtp({
+    email: emailNorm,
+    options: { shouldCreateUser: true, emailRedirectTo },
+  });
+  if (otpErr) {
+    console.error("[grantRequest] magic-link send failed", otpErr.message);
+    return { error: `Access granted, but the sign-in email failed to send (${otpErr.message}). Ask them to open the review link and enter their email.` };
+  }
+
   revalidatePath(PATH);
   return {};
 }

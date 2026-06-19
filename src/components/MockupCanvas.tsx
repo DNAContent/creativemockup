@@ -164,18 +164,65 @@ export default function MockupCanvas({
   }
 
   return (
-    <iframe
-      ref={ref}
-      srcDoc={SRC_DOC}
-      onLoad={onLoad}
-      title="Mockup preview"
-      style={{
-        width: "100%",
-        height,
-        border: "none",
-        display: "block",
-        background: "transparent",
-      }}
-    />
+    <>
+      {/* Accessible text alternative. The mockup itself renders inside an
+          isolated iframe built from HTML strings, so its headline/copy/CTA are
+          invisible to assistive tech — for a client whose whole task is to
+          review the creative, that's a blocker. Expose the fields as real,
+          screen-reader-navigable text (visually hidden; sighted users see the
+          iframe). WCAG 1.1.1 / 4.1.2. */}
+      <div className="sr-only">
+        <h3>Creative preview{creative.format ? ` (${creative.format})` : ""}</h3>
+        <SrField label="Brand" value={creative.brand_name} />
+        <SrField label="Headline" value={creative.headline} />
+        <SrField label="Body copy" value={creative.copy} />
+        <SrField label="Description" value={creative.description} />
+        <SrField label="Call to action" value={creative.cta} />
+        <SrField label="Email subject" value={creative.email_subject} />
+        <SrField label="Email preheader" value={creative.email_preheader} />
+        <SrField label="Email body" value={creative.email_body} />
+        {(creative.media_img || creative.media_video) && (
+          <p>
+            Includes {creative.media_img ? "an image" : ""}
+            {creative.media_img && creative.media_video ? " and " : ""}
+            {creative.media_video ? "a video" : ""}.
+          </p>
+        )}
+        {creative.creative_type === "carousel" &&
+          (creative.slides?.length ?? 0) > 0 && (
+            <ol>
+              {creative.slides!.map((s, i) => (
+                <li key={i}>
+                  Slide {i + 1}:{" "}
+                  {[s.headline, s.description, s.cta].filter(Boolean).join(" — ") ||
+                    "image only"}
+                </li>
+              ))}
+            </ol>
+          )}
+      </div>
+      <iframe
+        ref={ref}
+        srcDoc={SRC_DOC}
+        onLoad={onLoad}
+        title={`Mockup preview${creative.headline ? `: ${creative.headline}` : ""}`}
+        style={{
+          width: "100%",
+          height,
+          border: "none",
+          display: "block",
+          background: "transparent",
+        }}
+      />
+    </>
+  );
+}
+
+function SrField({ label, value }: { label: string; value?: string }) {
+  if (!value) return null;
+  return (
+    <p>
+      {label}: {value}
+    </p>
   );
 }

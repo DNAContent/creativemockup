@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendSlack } from "@/lib/notify/slack";
 import { sendEmail } from "@/lib/notify/email";
@@ -9,12 +10,22 @@ import {
   type NotifyEvent,
 } from "@/lib/notify/events";
 
+// Constant-time secret check. Hashing both sides to a fixed-length digest keeps
+// the comparison timing-safe regardless of input length, so a network attacker
+// can't recover the secret byte-by-byte from response timing.
+function secretMatches(provided: string | null, expected: string): boolean {
+  if (!provided) return false;
+  const a = createHash("sha256").update(provided).digest();
+  const b = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(a, b);
+}
+
 // Receives events POSTed by the DB triggers (db/06_notifications.sql) and fans
 // out to Slack + email. Authenticated by a shared secret header that must match
 // both NOTIFY_HOOK_SECRET (here) and notify_config.secret (in the DB).
 export async function POST(req: NextRequest) {
   const secret = process.env.NOTIFY_HOOK_SECRET;
-  if (!secret || req.headers.get("x-notify-secret") !== secret) {
+  if (!secret || !secretMatches(req.headers.get("x-notify-secret"), secret)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -78,8 +89,11 @@ export async function POST(req: NextRequest) {
         (prefs ?? []).map(async (p) => {
           try {
             const { data } = await admin.auth.admin.getUserById(p.user_id);
+            if (!data.user?.email)
+              console.error(`[notify] no email for opted-in user ${p.user_id}`);
             return data.user?.email ?? null;
-          } catch {
+          } catch (err) {
+            console.error(`[notify] lookup failed for user ${p.user_id}`, err);
             return null;
           }
         }),

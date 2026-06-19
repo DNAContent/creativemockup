@@ -94,8 +94,10 @@ function SlackBlock({
       </p>
 
       <input
+        type="url"
         value={s.slack_webhook_url ?? ""}
         onChange={(e) => set("slack_webhook_url", e.target.value)}
+        aria-label="Slack incoming webhook URL"
         placeholder="https://hooks.slack.com/services/…"
         className="mt-2 w-full rounded-lg border border-neutral-700 px-3 py-2 text-sm"
       />
@@ -142,8 +144,12 @@ function EmailBlock({
     <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-4">
       <h3 className="text-sm font-semibold">Email (per teammate)</h3>
       <p className="mt-1 text-xs text-neutral-400">
-        Choose who on your team gets emailed for each event. (Email delivery is
-        configured separately.)
+        Choose who on your team gets emailed for each event. Email sending
+        requires an email provider to be configured (set{" "}
+        <code className="rounded bg-neutral-800 px-1 py-0.5 text-[11px]">
+          SENDGRID_API_KEY
+        </code>
+        ); until then these preferences are saved but no emails are sent.
       </p>
 
       {members.length === 0 ? (

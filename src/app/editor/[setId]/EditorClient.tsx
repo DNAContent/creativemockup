@@ -12,6 +12,8 @@ import { PlusIcon, Spinner } from "@/components/icons";
 import {
   ASPECT_RATIOS,
   CREATIVE_FORMATS,
+  creativeStatusDot,
+  creativeStatusLabel,
   ctaOptionsForFormat,
   DEFAULT_FORMAT_FIELDS,
   EMPTY_SLIDE,
@@ -48,6 +50,18 @@ const EDIT_KEYS: (keyof CreativeEdit)[] = [
   "media_img", "media_video", "aspect_ratio", "creative_type", "slides",
 ];
 
+// Field equality that handles the one non-primitive edit field, `slides` (an
+// array of slide objects). Comparing arrays by reference would mark a creative
+// "dirty" on every realtime re-seed even when the values are identical, causing
+// an autosave loop that re-writes the same carousel payload — and could leave
+// carousel edits unsaved while the UI shows "saved". Deep-compare via JSON.
+function eqField(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a === "object" || typeof b === "object")
+    return JSON.stringify(a) === JSON.stringify(b);
+  return false;
+}
+
 // Only the fields that actually changed since the last saved baseline. Sending
 // a minimal patch (instead of the whole row) means two people editing DIFFERENT
 // fields of the same creative don't clobber each other's work — only a true
@@ -61,7 +75,7 @@ function changedPatch(
   }
   const patch: CreativeEdit = {};
   for (const k of EDIT_KEYS) {
-    if (c[k] !== baseline[k]) (patch as Record<string, unknown>)[k] = c[k];
+    if (!eqField(c[k], baseline[k])) (patch as Record<string, unknown>)[k] = c[k];
   }
   return patch;
 }
@@ -122,6 +136,8 @@ export default function EditorClient({
     refresh();
   }
 
+  const [reordering, setReordering] = useState(false);
+
   // Re-sync from the server after a refresh / save, and keep selection sane.
   const [prevInitial, setPrevInitial] = useState(initialCreatives);
   if (initialCreatives !== prevInitial) {
@@ -158,7 +174,27 @@ export default function EditorClient({
     !!draft &&
     !!savedRef.current &&
     draft.id === savedRef.current.id &&
-    EDIT_KEYS.some((k) => draft[k] !== savedRef.current![k]);
+    EDIT_KEYS.some((k) => !eqField(draft[k], savedRef.current![k]));
+
+  // Concurrent-edit safety: when the SERVER copy of the creative we're editing
+  // changes (a teammate's edit, or our own save landing) and we have no unsaved
+  // local edits, adopt the new server values. Without this, autosave would diff
+  // a later edit against a stale `savedRef` and silently overwrite the
+  // collaborator's fields. Guarded by `!dirty`, so it never wipes live typing,
+  // and by an equality check, so it terminates (re-seeding to an equal row is a
+  // no-op next render).
+  const seededRef = useRef(selected);
+  if (selectedId === draftId && selected && savedRef.current && !dirty) {
+    if (
+      selected.id === savedRef.current.id &&
+      seededRef.current !== selected &&
+      EDIT_KEYS.some((k) => !eqField(selected[k], savedRef.current![k]))
+    ) {
+      seededRef.current = selected;
+      setDraft(selected);
+      savedRef.current = selected;
+    }
+  }
 
   function field<K extends keyof EditorCreative>(key: K, value: EditorCreative[K]) {
     setDraft((d) => (d ? { ...d, [key]: value } : d));
@@ -284,15 +320,19 @@ export default function EditorClient({
   }
 
   async function move(index: number, dir: -1 | 1) {
+    if (reordering) return; // one reorder at a time; avoids racing optimistic swaps
     const target = index + dir;
     if (target < 0 || target >= creatives.length) return;
-    const next = [...creatives];
+    const prev = creatives; // snapshot for an accurate rollback
+    const next = [...prev];
     [next[index], next[target]] = [next[target], next[index]];
+    setReordering(true);
     setCreatives(next); // optimistic
     const res = await reorderCreatives(setId, next.map((c) => c.id));
+    setReordering(false);
     if (res.error) {
       toast(res.error, "error");
-      setCreatives(creatives);
+      setCreatives(prev);
       refresh(); // re-pull the true server order (e.g. list changed elsewhere)
       return;
     }
@@ -370,23 +410,25 @@ export default function EditorClient({
                   </div>
                 </button>
                 <span
-                  className={`h-2 w-2 shrink-0 rounded-full ${statusDot(c.status)}`}
-                  title={c.status}
+                  role="img"
+                  aria-label={`Status: ${creativeStatusLabel(c.status)}`}
+                  className={`h-2 w-2 shrink-0 rounded-full ${creativeStatusDot(c.status)}`}
+                  title={creativeStatusLabel(c.status)}
                 />
-                <div className="flex flex-col opacity-100 lg:opacity-0 lg:group-hover:opacity-100">
+                <div className="flex flex-col opacity-100 focus-within:opacity-100 lg:opacity-0 lg:group-hover:opacity-100">
                   <button
                     onClick={() => move(i, -1)}
-                    disabled={i === 0}
-                    className="px-1.5 py-0.5 text-xs leading-none text-neutral-500 hover:text-neutral-200 disabled:opacity-30"
-                    aria-label="Move up"
+                    disabled={i === 0 || reordering}
+                    className="px-1.5 py-0.5 text-sm leading-none text-neutral-500 hover:text-neutral-200 disabled:opacity-30"
+                    aria-label={`Move ${c.name || "creative"} up`}
                   >
                     ▲
                   </button>
                   <button
                     onClick={() => move(i, 1)}
-                    disabled={i === creatives.length - 1}
-                    className="px-1.5 py-0.5 text-xs leading-none text-neutral-500 hover:text-neutral-200 disabled:opacity-30"
-                    aria-label="Move down"
+                    disabled={i === creatives.length - 1 || reordering}
+                    className="px-1.5 py-0.5 text-sm leading-none text-neutral-500 hover:text-neutral-200 disabled:opacity-30"
+                    aria-label={`Move ${c.name || "creative"} down`}
                   >
                     ▼
                   </button>
@@ -884,12 +926,6 @@ function aspectSelectOptions(current: string) {
   if (current && !opts.some((o) => o.value === current))
     opts.unshift({ value: current, label: `${current} (custom)` });
   return opts;
-}
-
-function statusDot(status: string) {
-  if (status === "approved") return "bg-green-500";
-  if (status === "needs-edits") return "bg-red-500";
-  return "bg-neutral-600";
 }
 
 function Text({

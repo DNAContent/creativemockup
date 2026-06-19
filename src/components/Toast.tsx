@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useRef,
   useState,
 } from "react";
@@ -78,21 +79,33 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setConfirmState(null);
   }
 
+  // Escape closes the confirm dialog (treated as Cancel) from anywhere, not
+  // only when focus happens to be inside the overlay subtree.
+  useEffect(() => {
+    if (!confirmState) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") settle(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmState]);
+
   return (
     <ToastContext.Provider value={{ toast, confirm }}>
       {children}
 
-      {/* Toasts */}
+      {/* Toasts — one persistent polite live region announces new items. Per-item
+          live regions nested inside (plus aria-atomic) caused duplicated/missed
+          announcements across screen readers, so the items themselves are inert. */}
       <div
+        role="status"
         aria-live="polite"
-        aria-atomic="true"
         className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex flex-col items-center gap-2 px-4"
       >
         {toasts.map((t) => (
           <div
             key={t.id}
-            role={t.type === "error" ? "alert" : "status"}
-            aria-live={t.type === "error" ? "assertive" : "polite"}
             className={`animate-toast pointer-events-auto max-w-sm rounded-lg border px-4 py-2.5 text-sm shadow-lg ${TONE[t.type]}`}
           >
             {t.message}

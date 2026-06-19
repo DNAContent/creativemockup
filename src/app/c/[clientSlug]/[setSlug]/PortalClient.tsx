@@ -10,6 +10,8 @@ import ZoomBar from "@/components/ZoomBar";
 import ActionButton from "@/components/ActionButton";
 import Logo from "@/components/Logo";
 import {
+  creativeStatusDot,
+  creativeStatusLabel,
   SET_STATUS_LABELS,
   SET_STATUS_PILL,
   type Creative,
@@ -87,7 +89,10 @@ export default function PortalClient({
   }
 
   // Realtime: refresh when this set's creatives / comments / replies change.
-  const realtimeSetId = initialCreatives[0]?.set_id ?? null;
+  // Use the set id from props (not the first creative) so a client sitting on a
+  // just-shared EMPTY set still gets the `ads` subscription and sees the first
+  // creative appear live, instead of being stuck on "Nothing to review yet".
+  const realtimeSetId = setId;
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -193,7 +198,7 @@ export default function PortalClient({
     });
     if (error) return toast(error.message, "error");
     toast(
-      next === "approved" ? "Set approved." : "Set marked for review.",
+      next === "approved" ? "Set approved." : "Changes requested.",
       "success",
     );
     refresh();
@@ -239,24 +244,30 @@ export default function PortalClient({
               </span>
             </div>
             {caps.approve && (
-              <div className="flex gap-1.5">
-                <ActionButton
-                  onClick={() => changeSetStatus("approved")}
-                  disabled={setStatus === "approved"}
-                  busyLabel="…"
-                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-green-600 px-2 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Approve
-                </ActionButton>
-                <ActionButton
-                  onClick={() => changeSetStatus("needs_review")}
-                  disabled={setStatus === "needs_review"}
-                  busyLabel="…"
-                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-neutral-700 px-2 py-1.5 text-xs font-medium text-neutral-200 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Needs review
-                </ActionButton>
-              </div>
+              <>
+                <p className="mb-1.5 text-[11px] text-neutral-500">
+                  Whole set — approve once you&apos;re happy with everything, or
+                  send it back for changes.
+                </p>
+                <div className="flex gap-1.5">
+                  <ActionButton
+                    onClick={() => changeSetStatus("approved")}
+                    disabled={setStatus === "approved"}
+                    busyLabel="…"
+                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-green-600 px-2 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Approve set
+                  </ActionButton>
+                  <ActionButton
+                    onClick={() => changeSetStatus("needs_revisions")}
+                    disabled={setStatus === "needs_revisions"}
+                    busyLabel="…"
+                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-neutral-700 px-2 py-1.5 text-xs font-medium text-neutral-200 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Request changes
+                  </ActionButton>
+                </div>
+              </>
             )}
           </div>
           {notes && (
@@ -289,13 +300,30 @@ export default function PortalClient({
                     </span>
                   </span>
                   <span
-                    className={`h-2 w-2 shrink-0 rounded-full ${statusDot(c.status)}`}
-                    title={c.status}
+                    role="img"
+                    aria-label={`Status: ${creativeStatusLabel(c.status)}`}
+                    className={`h-2 w-2 shrink-0 rounded-full ${creativeStatusDot(c.status)}`}
+                    title={creativeStatusLabel(c.status)}
                   />
                 </button>
               ))
             )}
           </div>
+          {/* Legend so the status dots aren't color-only (and aren't a mystery
+              to a non-technical client). */}
+          {initialCreatives.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-neutral-800 px-4 py-2 text-[11px] text-neutral-400">
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-neutral-600" /> Pending
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-green-500" /> Approved
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-amber-500" /> Needs edits
+              </span>
+            </div>
+          )}
         </aside>
 
         {/* CENTER — preview (centered, zoom pinned bottom) */}
@@ -369,6 +397,16 @@ export default function PortalClient({
               </div>
             ) : (
               <>
+                {/* One-line orientation so a first-time client knows what to do
+                    on this screen without instructions. */}
+                <p className="mb-3 rounded-lg border border-neutral-800 bg-neutral-950 px-3 py-2 text-xs text-neutral-400">
+                  Reviewing <strong className="text-neutral-200">{selected.name || selected.format}</strong>.{" "}
+                  {caps.approve
+                    ? "Leave feedback below, then Approve this creative or Request edits."
+                    : caps.comment
+                      ? "Leave your feedback below."
+                      : "Browse the creatives in this set."}
+                </p>
                 {caps.approve && (
                   <div className="mb-3 flex gap-2">
                     <ActionButton
@@ -454,15 +492,19 @@ function AddComment({
   const [target, setTarget] = useState<string>("General");
   return (
     <>
-      <select
-        value={target}
-        onChange={(e) => setTarget(e.target.value)}
-        className="w-full rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-100"
-      >
-        {TARGETS.map((t) => (
-          <option key={t}>{t}</option>
-        ))}
-      </select>
+      <label className="block text-xs text-neutral-400">
+        What&apos;s your feedback about?
+        <select
+          value={target}
+          onChange={(e) => setTarget(e.target.value)}
+          aria-label="Feedback topic"
+          className="mt-1 w-full rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-100"
+        >
+          {TARGETS.map((t) => (
+            <option key={t}>{t}</option>
+          ))}
+        </select>
+      </label>
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -553,12 +595,6 @@ function CommentBlock({
       )}
     </div>
   );
-}
-
-function statusDot(status: string) {
-  if (status === "approved") return "bg-green-500";
-  if (status === "needs-edits") return "bg-red-500";
-  return "bg-neutral-600";
 }
 
 function EditInput({
