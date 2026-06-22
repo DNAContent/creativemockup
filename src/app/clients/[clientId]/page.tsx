@@ -8,10 +8,10 @@ export default async function ClientPage(props: {
 }) {
   const { clientId } = await props.params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  // The proxy already validated the session on this request; just confirm one
+  // is present (getClaims reads it locally when possible — see src/app/page.tsx).
+  const { data: claimsData } = await supabase.auth.getClaims();
+  if (!claimsData?.claims) redirect("/login");
 
   const { data: client } = await supabase
     .from("clients")

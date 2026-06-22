@@ -13,37 +13,43 @@ export default async function EditorPage(props: {
   const { setId } = await props.params;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  // The proxy already validated the session on this request; just confirm one
+  // is present (getClaims reads it locally when possible — see src/app/page.tsx).
+  const { data: claimsData } = await supabase.auth.getClaims();
+  if (!claimsData?.claims) redirect("/login");
 
   // Staff-only surface. RLS already blocks client-tier writes, but an
   // allowlisted client could otherwise SELECT a set and load the editor UI.
   // Require agency membership and send everyone else through "/", which
   // enrolls real staff and bounces clients to their /c portal.
-  const { data: membership } = await supabase
-    .from("agency_members")
-    .select("agency_id")
-    .limit(1)
-    .maybeSingle();
+  //
+  // The membership gate, the set, and its creatives are independent reads (RLS
+  // protects each), so fetch them in one parallel batch rather than three
+  // serial cross-region round trips. The !membership redirect below still fires
+  // before any data is rendered, so no set data reaches a non-staff caller.
+  const [{ data: membership }, { data: set }, { data: creatives }] =
+    await Promise.all([
+      supabase
+        .from("agency_members")
+        .select("agency_id")
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("creative_sets")
+        .select("id,name,slug,status,clients(id,name,slug)")
+        .eq("id", setId)
+        .maybeSingle(),
+      supabase
+        .from("ads")
+        .select(
+          "*, comments(id,author,text,target,resolved,created_at, replies(id,author,text,created_at))",
+        )
+        .eq("set_id", setId)
+        .order("position")
+        .returns<EditorCreative[]>(),
+    ]);
   if (!membership) redirect("/");
-
-  const { data: set } = await supabase
-    .from("creative_sets")
-    .select("id,name,slug,status,clients(id,name,slug)")
-    .eq("id", setId)
-    .maybeSingle();
   if (!set) notFound();
-
-  const { data: creatives } = await supabase
-    .from("ads")
-    .select(
-      "*, comments(id,author,text,target,resolved,created_at, replies(id,author,text,created_at))",
-    )
-    .eq("set_id", setId)
-    .order("position")
-    .returns<EditorCreative[]>();
 
   const cl = set.clients as
     | { id?: string; name?: string; slug?: string | null }

@@ -21,16 +21,28 @@ const SLACK_DEFAULTS: SlackSettings = {
 // team gets notified about client activity.
 export default async function TeamSettings() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  // The proxy already validated the session on this request; just confirm one
+  // is present (getClaims reads it locally when possible — see src/app/page.tsx).
+  const { data: claimsData } = await supabase.auth.getClaims();
+  if (!claimsData?.claims) redirect("/login");
 
-  const { data: membership } = await supabase
-    .from("agency_members")
-    .select("agency_id, role")
-    .limit(1)
-    .maybeSingle();
+  // Membership and the pending-requests inbox are independent reads, so fetch
+  // them together — one parallel batch instead of two serial cross-region hops.
+  const [{ data: membership }, { data: requests }] = await Promise.all([
+    supabase
+      .from("agency_members")
+      .select("agency_id, role")
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("access_requests")
+      .select(
+        "id,email,message,created_at, creative_sets!inner(name, clients!inner(name))",
+      )
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .returns<PendingRequest[]>(),
+  ]);
   const agencyId = membership?.agency_id ?? null;
   const isOwner = membership?.role === "owner";
 
@@ -40,15 +52,6 @@ export default async function TeamSettings() {
     const { data } = await supabase.rpc("staff_list");
     staff = (data as StaffMember[]) ?? [];
   }
-
-  const { data: requests } = await supabase
-    .from("access_requests")
-    .select(
-      "id,email,message,created_at, creative_sets!inner(name, clients!inner(name))",
-    )
-    .eq("status", "pending")
-    .order("created_at", { ascending: false })
-    .returns<PendingRequest[]>();
 
   // Notification settings: ensure every member has a prefs row, then load the
   // Slack config + per-member email opt-ins.
@@ -61,13 +64,17 @@ export default async function TeamSettings() {
       await Promise.all([
         supabase
           .from("notification_settings")
-          .select("*")
+          .select(
+            "slack_webhook_url,slack_enabled,slack_on_comment,slack_on_access_request,slack_on_approval",
+          )
           .eq("agency_id", agencyId)
           .maybeSingle(),
         supabase.rpc("agency_member_emails", { p_agency_id: agencyId }),
         supabase
           .from("notification_prefs")
-          .select("*")
+          .select(
+            "user_id,email_on_comment,email_on_access_request,email_on_approval",
+          )
           .eq("agency_id", agencyId),
       ]);
 

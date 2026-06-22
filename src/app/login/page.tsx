@@ -1,21 +1,13 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import LoginForm from "./LoginForm";
 import { HelixLogo } from "@/components/icons";
 
-export default async function LoginPage(props: {
-  searchParams: Promise<{ error?: string; sent?: string }>;
-}) {
-  const { error } = await props.searchParams;
-
-  // Already signed in? Send them on — "/" routes staff to the dashboard and
-  // clients to /c.
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (user) redirect("/");
-
+// Static, edge-cacheable shell — no per-request work. The proxy (src/proxy.ts)
+// handles both gating (it already calls getUser on every request) and bouncing
+// an already-signed-in visitor away from /login, so this page reads neither the
+// session nor searchParams. The rare `?error=` is surfaced client-side in
+// LoginForm. Keeping this page free of dynamic APIs lets it prerender and skip
+// a serverless cold start on the most-hit public route.
+export default function LoginPage() {
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-6 py-16">
       <div className="mb-6">
@@ -27,7 +19,7 @@ export default async function LoginPage(props: {
         </p>
       </div>
 
-      <LoginForm initialError={error} />
+      <LoginForm />
     </main>
   );
 }

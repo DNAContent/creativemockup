@@ -9,8 +9,11 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Run on everything except static assets and image files.
+  // Run on everything except static assets, image files, and /api. API routes
+  // authenticate themselves (the notify webhook checks a shared secret) and are
+  // never gated, so refreshing the Supabase session for them only adds a wasted
+  // getUser() round-trip to every webhook hit.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|css|js|woff2?|ttf)$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|css|js|woff2?|ttf)$).*)",
   ],
 };

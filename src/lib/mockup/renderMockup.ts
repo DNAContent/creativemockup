@@ -25,7 +25,7 @@ function mediaHTML(ad, square) {
   const uploadedVid = (ad.uploadedURL && ad.uploadedType === 'video') ? ad.uploadedURL : null;
   const h = square ? 280 : 225;
   const errFallback = `onerror="this.parentElement.innerHTML='<div style=\\'min-height:180px;display:flex;align-items:center;justify-content:center;color:#ccc;flex-direction:column;gap:6px;\\'><i class=\\'ti ti-photo-off\\' style=\\'font-size:26px;\\'></i><span style=\\'font-size:12px;\\'>Could not load image</span></div>'"`;
-  if (imgURL) { const sq = square ? 'aspect-ratio:1/1;object-fit:cover;' : ''; return `<img src="${esc(imgURL)}" style="width:100%;display:block;${sq}" ${errFallback} alt="" />`; }
+  if (imgURL) { const sq = square ? 'aspect-ratio:1/1;object-fit:cover;' : ''; return `<img decoding="async" src="${esc(imgURL)}" style="width:100%;display:block;${sq}" ${errFallback} alt="" />`; }
   if (uploadedVid) return `<video src="${uploadedVid}" controls style="width:100%;display:block;"></video>`;
   if (vidURL) {
     const yt = vidURL.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
@@ -43,7 +43,7 @@ function phHTML(cls, label) { return `<div class="${cls}"><i class="ti ti-photo"
 
 function avatarHTML(cls, ad) {
   const i = (ad.brandName || 'YB').split(' ').filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0,2);
-  if (ad.brandLogo) return `<div class="${cls}"><img src="${esc(toDirectImage(ad.brandLogo))}" onerror="this.style.display='none'" alt="" /></div>`;
+  if (ad.brandLogo) return `<div class="${cls}"><img decoding="async" src="${esc(toDirectImage(ad.brandLogo))}" onerror="this.style.display='none'" alt="" /></div>`;
   return `<div class="${cls}">${esc(i)}</div>`;
 }
 
@@ -53,7 +53,7 @@ function mediaInner(ad) {
   var imgURL = toDirectImage((ad.uploadedURL && ad.uploadedType === 'image') ? ad.uploadedURL : (ad.mediaImg || ''));
   var vidURL = ad.mediaVideo || '';
   var uploadedVid = (ad.uploadedURL && ad.uploadedType === 'video') ? ad.uploadedURL : null;
-  if (imgURL) return '<img src="' + esc(imgURL) + '" style="width:100%;height:100%;object-fit:cover;display:block;" alt="" />';
+  if (imgURL) return '<img decoding="async" src="' + esc(imgURL) + '" style="width:100%;height:100%;object-fit:cover;display:block;" alt="" />';
   // Video is wrapped in a vertically-centered frame (.media-vid-wrap) so a
   // landscape clip letterboxes SYMMETRICALLY rather than being top-aligned with
   // black above it. Iframe embeds have no intrinsic aspect, so they ride inside
@@ -82,7 +82,7 @@ function storyMediaHTML(ad) {
   var imgURL = toDirectImage((ad.uploadedURL && ad.uploadedType === 'image') ? ad.uploadedURL : (ad.mediaImg || ''));
   var vidURL = ad.mediaVideo || '';
   var uploadedVid = (ad.uploadedURL && ad.uploadedType === 'video') ? ad.uploadedURL : null;
-  if (imgURL) return '<img class="story-bg" src="' + esc(imgURL) + '" alt="" />';
+  if (imgURL) return '<img class="story-bg" decoding="async" src="' + esc(imgURL) + '" alt="" />';
   if (uploadedVid) return '<video class="story-bg" src="' + uploadedVid + '" autoplay muted loop playsinline></video>';
   if (vidURL) {
     var yt = vidURL.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
@@ -127,7 +127,7 @@ function carouselHTML(ad) {
   var cards = slides.map(function (s) {
     var img = toDirectImage(s.img || '');
     var media = img
-      ? '<img src="' + esc(img) + '" style="width:100%;height:100%;object-fit:cover;display:block;" alt="" />'
+      ? '<img decoding="async" src="' + esc(img) + '" style="width:100%;height:100%;object-fit:cover;display:block;" alt="" />'
       : '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#ececec;color:#bbb;"><i class="ti ti-photo" style="font-size:26px"></i></div>';
     var bar = (s.headline || s.description || s.cta)
       ? '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:#f7f8fa;border-top:1px solid #e4e6eb;">'
@@ -275,7 +275,7 @@ export function renderMockup(ad: Ad): string {
         </div>
         <div class="ig-story-header">
           <div class="ig-story-avatar"><div class="ig-story-avatar-inner">
-            ${ad.brandLogo ? `<img src="${esc(toDirectImage(ad.brandLogo))}" alt="" />` : esc(initials)}
+            ${ad.brandLogo ? `<img decoding="async" src="${esc(toDirectImage(ad.brandLogo))}" alt="" />` : esc(initials)}
           </div></div>
           <div><div class="ig-story-name">${esc(name)}</div><div class="ig-story-tag">Sponsored</div></div>
         </div>
@@ -310,7 +310,7 @@ export function renderMockup(ad: Ad): string {
   } else if (fmt.startsWith('display-')) {
     const inner = mediaInner(ad);
     const imgPH = '<div class="display-img-ph"><i class="ti ti-photo" style="font-size:22px"></i></div>';
-    const logo = ad.brandLogo ? `<img src="${esc(toDirectImage(ad.brandLogo))}" alt="" />` : '';
+    const logo = ad.brandLogo ? `<img decoding="async" src="${esc(toDirectImage(ad.brandLogo))}" alt="" />` : '';
     const dims = {'display-leaderboard':'728 × 90','display-mrec':'300 × 250','display-halfpage':'300 × 600','display-mobile':'320 × 50'};
     const unitClass = {'display-leaderboard':'display-leaderboard-unit','display-mrec':'display-mrec-unit','display-halfpage':'display-halfpage-unit','display-mobile':'display-mobile-unit'};
     const isHoriz = fmt === 'display-leaderboard' || fmt === 'display-mobile';

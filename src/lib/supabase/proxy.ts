@@ -54,5 +54,15 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Already signed in but sitting on /login? Send them on — "/" routes staff to
+  // the dashboard and clients to /c. This lived in the /login page as a second
+  // getUser() call; doing it here (where getUser already ran) lets /login render
+  // as a static shell instead of a per-request serverless invocation.
+  if (user && pathname === "/login") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
+    return NextResponse.redirect(url);
+  }
+
   return response;
 }

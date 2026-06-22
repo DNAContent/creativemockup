@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { EyeIcon, EyeOffIcon, MailIcon, Spinner } from "@/components/icons";
 
@@ -10,16 +10,23 @@ import { EyeIcon, EyeOffIcon, MailIcon, Spinner } from "@/components/icons";
 // surviving the redirect through the host, which it didn't — sign-in bounced
 // back to /login and the spinner hung forever.) Errors reset the busy state so
 // the form is always recoverable.
-export default function LoginForm({ initialError }: { initialError?: string }) {
-  const supabase = createClient();
+export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
   const [busy, setBusy] = useState<null | "in" | "up" | "magic">(null);
-  const [error, setError] = useState<string | null>(initialError ?? null);
+  const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // Surface a server-side `?error=` (e.g. a magic-link bounce) without reading
+  // searchParams on the server, which would force this page to render
+  // dynamically. Reading it after mount keeps the page a static shell.
+  useEffect(() => {
+    const err = new URLSearchParams(window.location.search).get("error");
+    if (err) setError(err);
+  }, []);
 
   async function signIn() {
     if (!email || !password) {
@@ -28,7 +35,7 @@ export default function LoginForm({ initialError }: { initialError?: string }) {
     }
     setBusy("in");
     setError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await createClient().auth.signInWithPassword({ email, password });
     if (error) {
       setError(error.message);
       setBusy(null);
@@ -45,7 +52,7 @@ export default function LoginForm({ initialError }: { initialError?: string }) {
     }
     setBusy("up");
     setError(null);
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await createClient().auth.signUp({ email, password });
     if (error) {
       setError(error.message);
       setBusy(null);
@@ -68,7 +75,7 @@ export default function LoginForm({ initialError }: { initialError?: string }) {
     }
     setBusy("magic");
     setError(null);
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error } = await createClient().auth.signInWithOtp({
       email,
       options: {
         shouldCreateUser: false,

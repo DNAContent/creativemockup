@@ -7,18 +7,39 @@ import DashboardClient, { type HomeClient } from "./DashboardClient";
 
 export default async function Dashboard() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  // The proxy (src/proxy.ts) already ran the authoritative, network-validating
+  // getUser() on this request and gated the route, so here we only READ the
+  // validated identity. getClaims() verifies the JWT locally when asymmetric
+  // signing keys are enabled (no cross-region hop to Supabase) and falls back to
+  // getUser() otherwise — never slower than the old call.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const claims = claimsData?.claims;
+  if (!claims) redirect("/login");
+  const email = typeof claims.email === "string" ? claims.email : "";
 
-  const { data: membership } = await supabase
-    .from("agency_members")
-    .select("agency_id, agencies(name)")
-    .limit(1)
-    .maybeSingle();
+  const selectClients = () =>
+    supabase
+      .from("clients")
+      .select("id,name,logo_url,brand_logo,contact_email,creative_sets(id,status)")
+      .order("created_at", { ascending: true })
+      .returns<HomeClient[]>();
+
+  // Membership and the client list are independent — RLS scopes the client list
+  // to the caller — so fetch them together instead of serially. Each Supabase
+  // query is a cross-region round trip (see proxy.ts), so collapsing two serial
+  // hops into one parallel batch shaves a full round trip off the common
+  // (already-enrolled) path.
+  const [{ data: membership }, { data: clientsInitial }] = await Promise.all([
+    supabase
+      .from("agency_members")
+      .select("agency_id, agencies(name)")
+      .limit(1)
+      .maybeSingle(),
+    selectClients(),
+  ]);
 
   let agencyName = (membership?.agencies as { name?: string } | null)?.name;
+  let clients = clientsInitial;
 
   // Not enrolled yet? Single-agency auto-enroll, gated by the staff allowlist
   // (master or invited teammate). We trust join_default_agency's RETURN VALUE —
@@ -30,15 +51,12 @@ export default async function Dashboard() {
     const { data: joined } = await supabase.rpc("join_default_agency");
     if (!joined) redirect("/c");
     agencyName = (joined as { name?: string } | null)?.name ?? agencyName;
+    // The parallel client fetch above ran before enrollment, so RLS returned
+    // nothing — re-fetch now that the membership row exists.
+    ({ data: clients } = await selectClients());
   }
 
   const displayAgency = agencyName ?? "Your agency";
-
-  const { data: clients } = await supabase
-    .from("clients")
-    .select("id,name,logo_url,brand_logo,contact_email,creative_sets(id,status)")
-    .order("created_at", { ascending: true })
-    .returns<HomeClient[]>();
 
   return (
     <div className="flex-1">
@@ -52,7 +70,7 @@ export default async function Dashboard() {
         right={
           <>
             <HeaderLink href="/settings/team">Team &amp; access</HeaderLink>
-            <span className="hidden sm:inline">{user.email}</span>
+            <span className="hidden sm:inline">{email}</span>
             <form action={signOut}>
               <button className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-200 hover:bg-neutral-800">
                 <LogoutIcon className="h-3.5 w-3.5" />
