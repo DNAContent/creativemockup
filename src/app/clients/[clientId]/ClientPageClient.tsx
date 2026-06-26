@@ -29,6 +29,7 @@ import {
   addContact,
   removeContact,
   setContactCaps,
+  setContactPrimary,
 } from "../../settings/team/actions";
 
 type DetailSet = {
@@ -45,18 +46,23 @@ type DetailContact = {
   can_comment: boolean;
   can_approve: boolean;
   can_edit: boolean;
+  is_primary: boolean;
 };
 export type ClientDetail = {
   id: string;
   name: string;
   slug: string | null;
   logo_url: string | null;
-  contact_email: string | null;
   brand_name: string | null;
   brand_logo: string | null;
   creative_sets: DetailSet[];
   client_contacts: DetailContact[];
 };
+
+// The client's headline contact: the one flagged primary, else the first added.
+function primaryContact(client: ClientDetail): DetailContact | undefined {
+  return client.client_contacts.find((c) => c.is_primary) ?? client.client_contacts[0];
+}
 
 export default function ClientPageClient({ client }: { client: ClientDetail }) {
   const router = useRouter();
@@ -82,7 +88,6 @@ function DetailsCard({
   const { toast, confirm } = useToast();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(client.name);
-  const [email, setEmail] = useState(client.contact_email ?? "");
   const [brandName, setBrandName] = useState(client.brand_name ?? "");
   const [brandLogo, setBrandLogo] = useState(client.brand_logo ?? "");
   const [logo, setLogo] = useState(client.logo_url ?? "");
@@ -90,7 +95,6 @@ function DetailsCard({
 
   function reset() {
     setName(client.name);
-    setEmail(client.contact_email ?? "");
     setBrandName(client.brand_name ?? "");
     setBrandLogo(client.brand_logo ?? "");
     setLogo(client.logo_url ?? "");
@@ -100,7 +104,6 @@ function DetailsCard({
     setBusy(true);
     const res = await updateClient(client.id, {
       name,
-      contact_email: email,
       brand_name: brandName,
       brand_logo: brandLogo,
       logo_url: logo,
@@ -174,7 +177,7 @@ function DetailsCard({
             <h1 className="truncate text-xl font-semibold">{client.name}</h1>
             <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-neutral-400">
               {client.brand_name && <span>Brand: {client.brand_name}</span>}
-              {client.contact_email && <span>{client.contact_email}</span>}
+              {primaryContact(client) && <span>{primaryContact(client)!.email}</span>}
             </div>
             <div className="mt-2 text-xs text-neutral-500">
               {client.creative_sets.length} set
@@ -206,7 +209,6 @@ function DetailsCard({
       <h2 className="mb-3 text-sm font-semibold">Edit client</h2>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Name" value={name} onChange={setName} />
-        <Field label="Contact email" value={email} onChange={setEmail} />
         <Field label="Brand name (mockups)" value={brandName} onChange={setBrandName} />
         <Field label="Brand logo URL (mockups)" value={brandLogo} onChange={setBrandLogo} />
         <Field label="Client logo URL (portal header)" value={logo} onChange={setLogo} />
@@ -613,6 +615,14 @@ function ContactRow({
     if (res.error) return toast(res.error, "error");
     onChanged();
   }
+  async function togglePrimary() {
+    setBusy(true);
+    const res = await setContactPrimary(contact.id, !contact.is_primary);
+    setBusy(false);
+    if (res.error) return toast(res.error, "error");
+    toast(contact.is_primary ? "Primary cleared." : "Set as primary.", "success");
+    onChanged();
+  }
   async function remove() {
     setBusy(true);
     const res = await removeContact(contact.id);
@@ -624,10 +634,30 @@ function ContactRow({
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-t border-neutral-800 py-2.5 text-sm first:border-t-0">
-      <span className="min-w-0 flex-1 truncate">
-        {contact.email}
-        {contact.name && <span className="text-neutral-500"> · {contact.name}</span>}
+      <span className="flex min-w-0 flex-1 items-center gap-1.5 truncate">
+        <span className="truncate">
+          {contact.email}
+          {contact.name && <span className="text-neutral-500"> · {contact.name}</span>}
+        </span>
+        {contact.is_primary && (
+          <span className="shrink-0 rounded-full bg-indigo-500/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-indigo-300">
+            Primary
+          </span>
+        )}
       </span>
+      <button
+        onClick={togglePrimary}
+        disabled={busy}
+        title={contact.is_primary ? "Remove primary" : "Make this the primary contact"}
+        aria-pressed={contact.is_primary}
+        className={`rounded-lg border px-2.5 py-1 text-xs disabled:opacity-50 ${
+          contact.is_primary
+            ? "border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/15"
+            : "border-neutral-700 text-neutral-400 hover:bg-neutral-800"
+        }`}
+      >
+        {contact.is_primary ? "Primary" : "Make primary"}
+      </button>
       <ContactCapsPicker value={caps} onChange={changeCaps} disabled={busy} />
       <ActionButton
         onClick={remove}

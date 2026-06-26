@@ -63,6 +63,43 @@ export async function setContactCaps(
   return {};
 }
 
+// Mark a contact as this client's primary (the one shown on the dashboard +
+// client header), or clear it. A partial unique index enforces one primary per
+// client, so we clear the client's other primaries first, then set this one.
+export async function setContactPrimary(
+  contactId: string,
+  makePrimary: boolean,
+): Promise<ActionResult> {
+  const supabase = await createClient();
+
+  // Resolve the owning client so we can clear its other primaries.
+  const { data: contact, error: lookupErr } = await supabase
+    .from("client_contacts")
+    .select("client_id")
+    .eq("id", contactId)
+    .maybeSingle();
+  if (lookupErr) return { error: lookupErr.message };
+  if (!contact) return { error: "Contact not found." };
+
+  if (makePrimary) {
+    const { error: clearErr } = await supabase
+      .from("client_contacts")
+      .update({ is_primary: false })
+      .eq("client_id", contact.client_id)
+      .neq("id", contactId);
+    if (clearErr) return { error: clearErr.message };
+  }
+
+  const { error } = await supabase
+    .from("client_contacts")
+    .update({ is_primary: makePrimary })
+    .eq("id", contactId);
+  if (error) return { error: error.message };
+  revalidatePath(PATH);
+  revalidatePath("/");
+  return {};
+}
+
 export async function removeContact(contactId: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase

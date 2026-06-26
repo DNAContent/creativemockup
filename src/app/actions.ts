@@ -2,8 +2,13 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { DEFAULT_CONTACT_CAPS } from "@/lib/types";
 
 type ActionResult = { error?: string };
+
+// Pragmatic email check, mirrored from settings/team/actions — enough to reject
+// empty/garbage before it becomes a junk allowlist row that can't be magic-linked.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function slugify(s: string) {
   return s
@@ -22,18 +27,23 @@ async function myAgencyId(supabase: Awaited<ReturnType<typeof createClient>>) {
 }
 
 // Insert `row` with a slug derived from `base`, retrying with -2, -3, … on a
-// unique-violation (23505) so slugs stay unique within their parent.
+// unique-violation (23505) so slugs stay unique within their parent. Returns the
+// new row's id so callers can attach children (e.g. a primary contact).
 async function insertWithSlug(
   supabase: Awaited<ReturnType<typeof createClient>>,
   table: "clients" | "creative_sets",
   row: Record<string, unknown>,
   base: string,
-): Promise<ActionResult> {
+): Promise<ActionResult & { id?: string }> {
   const root = slugify(base) || table.slice(0, 3);
   for (let n = 1; n <= 50; n++) {
     const slug = n === 1 ? root : `${root}-${n}`;
-    const { error } = await supabase.from(table).insert({ ...row, slug });
-    if (!error) return {};
+    const { data, error } = await supabase
+      .from(table)
+      .insert({ ...row, slug })
+      .select("id")
+      .single();
+    if (!error) return { id: data.id as string };
     if (error.code !== "23505") return { error: error.message }; // not a slug collision
   }
   return { error: "Could not generate a unique slug." };
@@ -53,20 +63,47 @@ export async function addClient(
   if (!agencyId) return { error: "No agency found for this account." };
   const clean = name.trim();
   if (!clean) return { error: "Client name is required." };
+
+  // The contact email entered here becomes the client's PRIMARY contact (an
+  // actual allowlist row that can sign in) — not the old orphan contact_email.
+  // Validate up front so we don't create a client and then fail on the contact.
+  const contactClean = contactEmail?.trim().toLowerCase() || "";
+  if (contactClean && !EMAIL_RE.test(contactClean))
+    return { error: "Enter a valid contact email (or leave it blank)." };
+
   const res = await insertWithSlug(
     supabase,
     "clients",
     {
       agency_id: agencyId,
       name: clean,
-      contact_email: contactEmail?.trim() || null,
       logo_url: logoUrl?.trim() || null,
       brand_name: brandName?.trim() || null,
       brand_logo: brandLogo?.trim() || null,
     },
     clean,
   );
-  if (res.error) return res;
+  if (res.error || !res.id) return { error: res.error ?? "Could not create client." };
+
+  if (contactClean) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { error: contactErr } = await supabase.from("client_contacts").insert({
+      client_id: res.id,
+      email: contactClean,
+      ...DEFAULT_CONTACT_CAPS,
+      is_primary: true,
+      invited_by: user?.id ?? null,
+    });
+    // The client was created; a contact hiccup shouldn't undo that. Surface a
+    // soft warning so they can re-add the contact from the client page.
+    if (contactErr)
+      return {
+        error: `Client created, but adding the contact failed (${contactErr.message}). Add it from the client page.`,
+      };
+  }
+
   revalidatePath("/");
   return {};
 }
@@ -75,7 +112,6 @@ export async function updateClient(
   clientId: string,
   patch: {
     name?: string;
-    contact_email?: string | null;
     logo_url?: string | null;
     brand_name?: string | null;
     brand_logo?: string | null;
@@ -88,8 +124,6 @@ export async function updateClient(
     if (!n) return { error: "Client name can't be empty." };
     fields.name = n;
   }
-  if (patch.contact_email !== undefined)
-    fields.contact_email = patch.contact_email?.trim() || null;
   if (patch.logo_url !== undefined)
     fields.logo_url = patch.logo_url?.trim() || null;
   if (patch.brand_name !== undefined)

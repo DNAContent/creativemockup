@@ -54,19 +54,24 @@ function mediaInner(ad) {
   var vidURL = ad.mediaVideo || '';
   var uploadedVid = (ad.uploadedURL && ad.uploadedType === 'video') ? ad.uploadedURL : null;
   if (imgURL) return '<img decoding="async" src="' + esc(imgURL) + '" style="width:100%;height:100%;object-fit:cover;display:block;" alt="" />';
-  // Video is wrapped in a vertically-centered frame (.media-vid-wrap) so a
-  // landscape clip letterboxes SYMMETRICALLY rather than being top-aligned with
-  // black above it. Iframe embeds have no intrinsic aspect, so they ride inside
-  // a 16:9 .media-vid-frame; a real <video> knows its own ratio (object-fit).
-  if (uploadedVid) return '<div class="media-vid-wrap"><video src="' + uploadedVid + '" controls></video></div>';
+  // Linked/uploaded video fills the media box at the CHOSEN aspect ratio, the
+  // same way an image does: a real <video> cover-crops to fill, and an iframe
+  // embed fills the box while the provider's player handles any internal
+  // letterboxing for a clip whose own ratio differs from the selected box.
+  // (Previously every video was forced into a fixed 16:9 sub-frame, so it
+  // ignored the aspect-ratio dropdown and showed black bars whenever the box
+  // wasn't 16:9.)
+  var vidFill = 'width:100%;height:100%;object-fit:cover;display:block;';
+  var frameFill = 'position:absolute;inset:0;width:100%;height:100%;border:none;';
+  if (uploadedVid) return '<video src="' + uploadedVid + '" controls style="' + vidFill + '"></video>';
   if (vidURL) {
     var yt = vidURL.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
-    if (yt) return '<div class="media-vid-wrap"><div class="media-vid-frame"><iframe src="https://www.youtube.com/embed/' + yt[1] + '" frameborder="0" allowfullscreen></iframe></div></div>';
+    if (yt) return '<iframe src="https://www.youtube.com/embed/' + yt[1] + '" frameborder="0" allowfullscreen style="' + frameFill + '"></iframe>';
     var gd = getGDriveID(vidURL);
-    if (gd) return '<div class="media-vid-wrap"><div class="media-vid-frame"><iframe src="https://drive.google.com/file/d/' + gd + '/preview" frameborder="0" allowfullscreen allow="autoplay"></iframe></div></div>';
+    if (gd) return '<iframe src="https://drive.google.com/file/d/' + gd + '/preview" frameborder="0" allowfullscreen allow="autoplay" style="' + frameFill + '"></iframe>';
     var vi = getVimeoID(vidURL);
-    if (vi) return '<div class="media-vid-wrap"><div class="media-vid-frame"><iframe src="https://player.vimeo.com/video/' + vi + '" frameborder="0" allowfullscreen></iframe></div></div>';
-    return '<div class="media-vid-wrap"><video src="' + esc(vidURL) + '" controls></video></div>';
+    if (vi) return '<iframe src="https://player.vimeo.com/video/' + vi + '" frameborder="0" allowfullscreen style="' + frameFill + '"></iframe>';
+    return '<video src="' + esc(vidURL) + '" controls style="' + vidFill + '"></video>';
   }
   return null;
 }

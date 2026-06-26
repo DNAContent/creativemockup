@@ -20,7 +20,7 @@ export default async function Dashboard() {
   const selectClients = () =>
     supabase
       .from("clients")
-      .select("id,name,logo_url,brand_logo,contact_email,creative_sets(id,status)")
+      .select("id,name,logo_url,brand_logo,creative_sets(id,status),client_contacts(email,is_primary)")
       .order("created_at", { ascending: true })
       .returns<HomeClient[]>();
 

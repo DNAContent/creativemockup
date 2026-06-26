@@ -16,7 +16,7 @@ export default async function ClientPage(props: {
   const { data: client } = await supabase
     .from("clients")
     .select(
-      "id,name,slug,logo_url,contact_email,brand_name,brand_logo, creative_sets(id,name,slug,status,due_date), client_contacts(id,email,name,can_comment,can_approve,can_edit)",
+      "id,name,slug,logo_url,brand_name,brand_logo, creative_sets(id,name,slug,status,due_date), client_contacts(id,email,name,can_comment,can_approve,can_edit,is_primary)",
     )
     .eq("id", clientId)
     .maybeSingle();

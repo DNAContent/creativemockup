@@ -16,12 +16,18 @@ export type HomeClient = {
   name: string;
   logo_url: string | null;
   brand_logo: string | null;
-  contact_email: string | null;
   creative_sets: { id: string; status: SetStatus }[];
+  client_contacts: { email: string; is_primary: boolean }[];
 };
 
 function clientLogo(c: HomeClient) {
   return c.brand_logo || c.logo_url;
+}
+
+// The contact shown on the card: the primary one, else the first added.
+function primaryEmail(c: HomeClient): string | undefined {
+  const contacts = c.client_contacts ?? [];
+  return (contacts.find((ct) => ct.is_primary) ?? contacts[0])?.email;
 }
 
 export default function DashboardClient({ clients }: { clients: HomeClient[] }) {
@@ -106,9 +112,9 @@ export default function DashboardClient({ clients }: { clients: HomeClient[] }) 
                 />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{c.name}</div>
-                  {c.contact_email && (
+                  {primaryEmail(c) && (
                     <div className="truncate text-xs text-neutral-500">
-                      {c.contact_email}
+                      {primaryEmail(c)}
                     </div>
                   )}
                 </div>
@@ -193,7 +199,11 @@ function AddClientModal({
         </p>
         <div className="space-y-2">
           <Field label="Client name *" value={name} onChange={setName} />
-          <Field label="Contact email" value={email} onChange={setEmail} />
+          <Field label="Primary contact email" value={email} onChange={setEmail} />
+          <p className="-mt-1 text-[11px] text-neutral-500">
+            Becomes the client&apos;s primary contact and can sign in to the review
+            portal. Add more contacts later on the client page.
+          </p>
           <Field label="Brand name (mockups)" value={brandName} onChange={setBrandName} />
           <Field label="Brand logo URL (mockups)" value={brandLogo} onChange={setBrandLogo} />
           <Field label="Client logo URL (portal header)" value={logo} onChange={setLogo} />

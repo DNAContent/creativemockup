@@ -226,17 +226,6 @@ hr.div{border:none;border-top:1px solid var(--border);margin:10px 0}
 .media-ar video{width:100%;height:100%;object-fit:cover;display:block}
 .media-ar iframe{position:absolute;inset:0;width:100%;height:100%;border:none}
 .media-ar-ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#bbb;flex-direction:column;gap:8px;font-size:13px}
-/* Video media centering. A linked video (Drive/YouTube/Vimeo/mp4) is centered
-   inside its media box: iframe embeds ride in a fixed 16:9 frame, real <video>
-   uses object-fit:contain. Either way a landscape clip in a taller box now
-   letterboxes SYMMETRICALLY (black top AND bottom) instead of being pinned to
-   the top. Standalone classes so this also works in native-infeed, which reuses
-   the same media markup without the .media-ar wrapper. Defined after .media-ar
-   so it wins the object-fit tie. */
-.media-vid-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#000;overflow:hidden}
-.media-vid-wrap .media-vid-frame{position:relative;width:100%;aspect-ratio:16/9}
-.media-vid-wrap .media-vid-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:none}
-.media-vid-wrap video{width:100%;height:100%;object-fit:contain;display:block}
 /* story video centering */
 .story-card video.story-bg{object-fit:cover;object-position:center center}
 .story-iframe-wrap{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:100%;height:177.8%;pointer-events:none}
