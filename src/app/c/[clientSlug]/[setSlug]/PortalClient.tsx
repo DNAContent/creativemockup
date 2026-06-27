@@ -88,6 +88,15 @@ export default function PortalClient({
     if (!portalDirty) setDraft(selected);
   }
 
+  // This set's creative ids, kept fresh (via an effect, not a re-subscribe) so
+  // the long-lived comments channel can ignore changes to OTHER sets' creatives.
+  const adIds = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    adIds.current = new Set(
+      initialCreatives.map((c) => c.id).filter((id): id is string => !!id),
+    );
+  }, [initialCreatives]);
+
   // Realtime: refresh when this set's creatives / comments / replies change.
   // Use the set id from props (not the first creative) so a client sitting on a
   // just-shared EMPTY set still gets the `ads` subscription and sees the first
@@ -106,8 +115,15 @@ export default function PortalClient({
     if (realtimeSetId) {
       ch.on("postgres_changes", { event: "*", schema: "public", table: "ads", filter: `set_id=eq.${realtimeSetId}` }, bump);
     }
+    // The comments table can't be server-filtered to a set, so gate client-side:
+    // ignore a comment change only when we KNOW its ad belongs to another set.
+    // Anything ambiguous (e.g. a DELETE that carries only the id) still refreshes.
+    const onComment = (payload: { new?: { ad_id?: string }; old?: { ad_id?: string } }) => {
+      const adId = payload.new?.ad_id ?? payload.old?.ad_id;
+      if (!adId || adIds.current.has(adId)) bump();
+    };
     ch.on("postgres_changes", { event: "*", schema: "public", table: "creative_sets", filter: `id=eq.${setId}` }, bump)
-      .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, onComment)
       .on("postgres_changes", { event: "*", schema: "public", table: "replies" }, bump);
     // Defer the WebSocket handshake past first paint — live updates aren't
     // needed in the first second and the connect competes with hydration.

@@ -18,6 +18,9 @@ export default async function ClientPage(props: {
     .select(
       "id,name,slug,logo_url,brand_name,brand_logo, creative_sets(id,name,slug,status,due_date), client_contacts(id,email,name,can_comment,can_approve,can_edit,is_primary)",
     )
+    // Deterministic primary: flagged-primary first, else oldest contact.
+    .order("is_primary", { referencedTable: "client_contacts", ascending: false })
+    .order("created_at", { referencedTable: "client_contacts", ascending: true })
     .eq("id", clientId)
     .maybeSingle();
   if (!client) notFound();

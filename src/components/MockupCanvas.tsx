@@ -205,6 +205,13 @@ export default function MockupCanvas({
         ref={ref}
         srcDoc={SRC_DOC}
         onLoad={onLoad}
+        // Defense-in-depth: the preview is built from HTML strings, so sandbox it
+        // to a unique opaque origin (NO allow-same-origin) — even if some field
+        // ever injected markup, it couldn't reach the app's origin/session. The
+        // mockup script runs (allow-scripts) and talks to the parent only via
+        // postMessage('*'), which works across the opaque origin; popups/
+        // presentation keep embedded video players (YouTube/Drive/Vimeo) working.
+        sandbox="allow-scripts allow-popups allow-presentation"
         title={`Mockup preview${creative.headline ? `: ${creative.headline}` : ""}`}
         style={{
           width: "100%",

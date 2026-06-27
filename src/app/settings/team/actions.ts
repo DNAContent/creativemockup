@@ -2,12 +2,14 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import type { ContactCaps } from "@/lib/types";
 
 const PATH = "/settings/team";
 
 // All team actions resolve to this shape so callers can read `.error` uniformly.
-type ActionResult = { error?: string };
+// `warning` = succeeded with a caveat (caller should still refresh).
+type ActionResult = { error?: string; warning?: string };
 
 // Pragmatic email check — enough to reject empty/garbage before it becomes a
 // junk allowlist row that can never receive a magic link.
@@ -42,6 +44,7 @@ export async function addContact(
     return { error: error.message };
   }
   revalidatePath(PATH);
+  revalidatePath("/"); // dashboard card may show this client's primary contact
   return {};
 }
 
@@ -60,6 +63,7 @@ export async function setContactCaps(
     .eq("id", contactId);
   if (error) return { error: error.message };
   revalidatePath(PATH);
+  revalidatePath("/");
   return {};
 }
 
@@ -71,29 +75,13 @@ export async function setContactPrimary(
   makePrimary: boolean,
 ): Promise<ActionResult> {
   const supabase = await createClient();
-
-  // Resolve the owning client so we can clear its other primaries.
-  const { data: contact, error: lookupErr } = await supabase
-    .from("client_contacts")
-    .select("client_id")
-    .eq("id", contactId)
-    .maybeSingle();
-  if (lookupErr) return { error: lookupErr.message };
-  if (!contact) return { error: "Contact not found." };
-
-  if (makePrimary) {
-    const { error: clearErr } = await supabase
-      .from("client_contacts")
-      .update({ is_primary: false })
-      .eq("client_id", contact.client_id)
-      .neq("id", contactId);
-    if (clearErr) return { error: clearErr.message };
-  }
-
-  const { error } = await supabase
-    .from("client_contacts")
-    .update({ is_primary: makePrimary })
-    .eq("id", contactId);
+  // One transactional, staff-gated RPC (db/21) clears the client's other
+  // primaries and sets this one — avoids the clear-then-set race that could
+  // collide on the one-primary-per-client partial unique index.
+  const { error } = await supabase.rpc("set_contact_primary", {
+    p_contact_id: contactId,
+    p_make: makePrimary,
+  });
   if (error) return { error: error.message };
   revalidatePath(PATH);
   revalidatePath("/");
@@ -102,12 +90,37 @@ export async function setContactPrimary(
 
 export async function removeContact(contactId: string): Promise<ActionResult> {
   const supabase = await createClient();
+  // Note whether this was the client's primary so we can promote a replacement.
+  const { data: removed } = await supabase
+    .from("client_contacts")
+    .select("client_id, is_primary")
+    .eq("id", contactId)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("client_contacts")
     .delete()
     .eq("id", contactId);
   if (error) return { error: error.message };
+
+  // If the primary was removed, promote the oldest remaining contact so the
+  // client always has a deterministic primary (and the dashboard/header keep
+  // showing a real, sign-in-capable contact).
+  if (removed?.is_primary && removed.client_id) {
+    const { data: next } = await supabase
+      .from("client_contacts")
+      .select("id")
+      .eq("client_id", removed.client_id)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (next?.id) {
+      await supabase.rpc("set_contact_primary", { p_contact_id: next.id, p_make: true });
+    }
+  }
+
   revalidatePath(PATH);
+  revalidatePath("/");
   return {};
 }
 
@@ -171,21 +184,28 @@ export async function grantRequest(
   const clientSlug = Array.isArray(set?.clients)
     ? set?.clients[0]?.slug
     : set?.clients?.slug;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  // Build the deep-link base from NEXT_PUBLIC_SITE_URL, falling back to the
+  // request host (same as the client gate) so the magic link still lands on the
+  // right review even when the env var isn't set.
+  const h = await headers();
+  const origin =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
   const emailRedirectTo =
-    siteUrl && clientSlug && set?.slug
-      ? `${siteUrl}/auth/callback?next=/c/${clientSlug}/${set.slug}`
+    clientSlug && set?.slug
+      ? `${origin}/auth/callback?next=/c/${clientSlug}/${set.slug}`
       : undefined;
   const { error: otpErr } = await supabase.auth.signInWithOtp({
     email: emailNorm,
     options: { shouldCreateUser: true, emailRedirectTo },
   });
+  // Access was already granted; a failed email is a warning, not a failure — so
+  // refresh the inbox (the request is no longer pending) instead of leaving it.
+  revalidatePath(PATH);
   if (otpErr) {
     console.error("[grantRequest] magic-link send failed", otpErr.message);
-    return { error: `Access granted, but the sign-in email failed to send (${otpErr.message}). Ask them to open the review link and enter their email.` };
+    return { warning: `Access granted, but the sign-in email failed to send (${otpErr.message}). Ask them to open the review link and enter their email.` };
   }
-
-  revalidatePath(PATH);
   return {};
 }
 

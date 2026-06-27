@@ -22,6 +22,9 @@ export default async function Dashboard() {
       .from("clients")
       .select("id,name,logo_url,brand_logo,creative_sets(id,status),client_contacts(email,is_primary)")
       .order("created_at", { ascending: true })
+      // Deterministic primary: flagged-primary first, else oldest contact.
+      .order("is_primary", { referencedTable: "client_contacts", ascending: false })
+      .order("created_at", { referencedTable: "client_contacts", ascending: true })
       .returns<HomeClient[]>();
 
   // Membership and the client list are independent — RLS scopes the client list

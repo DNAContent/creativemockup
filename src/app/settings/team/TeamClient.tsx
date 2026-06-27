@@ -71,7 +71,8 @@ function RequestRow({
     const res = await grantRequest(request.id, caps);
     setBusy(false);
     if (res.error) return toast(res.error, "error");
-    toast("Access granted.", "success");
+    // A warning means access WAS granted (e.g. the email failed) — still refresh.
+    toast(res.warning ?? "Access granted.", res.warning ? "error" : "success");
     onChanged();
   }
   async function deny() {

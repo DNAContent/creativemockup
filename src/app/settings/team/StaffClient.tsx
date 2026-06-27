@@ -48,7 +48,9 @@ export default function StaffClient({ staff }: { staff: StaffMember[] }) {
     if (res.error) return toast(res.error, "error");
     const invited = email.trim();
     setEmail("");
-    toast(`Invite sent to ${invited}.`, "success");
+    // A warning means the teammate WAS added (e.g. invite email failed) — still
+    // refresh so they appear; just surface the caveat.
+    toast(res.warning ?? `Invite sent to ${invited}.`, res.warning ? "error" : "success");
     refresh();
   }
 
@@ -114,7 +116,7 @@ function StaffRow({
   member: StaffMember;
   onChanged: () => void;
 }) {
-  const { toast } = useToast();
+  const { toast, confirm } = useToast();
   const [busy, setBusy] = useState(false);
   const isMaster = member.email === MASTER_EMAIL;
   const uiRole: StaffRole = member.role === "owner" ? "owner" : "member";
@@ -127,6 +129,8 @@ function StaffRow({
     onChanged();
   }
   async function remove() {
+    if (!(await confirm(`Remove ${member.email} from the team? They'll lose access.`)))
+      return;
     setBusy(true);
     const res = await removeStaff(member.email);
     setBusy(false);

@@ -8,7 +8,16 @@ export type Ad = { [k: string]: any };
 
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-function getGDriveID(url) { const m = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/); return m ? m[1] : null; }
+// Graceful fallback when an <img> fails (private Google Drive file, dead URL):
+// replace the broken-image glyph with a centered "Could not load image" panel.
+const IMG_ERR = `onerror="this.parentElement.innerHTML='<div style=\\'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#bbb;flex-direction:column;gap:6px;\\'><i class=\\'ti ti-photo-off\\' style=\\'font-size:26px;\\'></i><span style=\\'font-size:12px;\\'>Could not load image</span></div>'"`;
+
+// Drive file id from any common share form: /file/d/ID, open?id=ID, uc?id=ID.
+function getGDriveID(url) { const m = (url||'').match(/\/file\/d\/([a-zA-Z0-9_-]{10,})/) || (url||'').match(/[?&]id=([a-zA-Z0-9_-]{10,})/); return m ? m[1] : null; }
+// Validate an aspect ratio ("16:9" / "1.91:1") before it lands in a style="…"
+// attribute. Anything else falls back to `def` — blocks attribute-breakout XSS
+// via a crafted aspect_ratio (the field can hold custom/imported values).
+function safeAR(v, def) { var s = String(v == null ? def : v); return /^\d+(\.\d+)?[:/]\d+(\.\d+)?$/.test(s) ? s.replace(':', '/') : def.replace(':', '/'); }
 // Google Drive "share" links (…/file/d/ID/view, open?id=ID, uc?id=ID) serve an
 // HTML page, not the image bytes — so <img src> can't load them. Rewrite to the
 // thumbnail endpoint, which returns the file itself and works cross-origin.
@@ -17,7 +26,12 @@ function toDirectImage(url) {
   var m = url.match(/\/file\/d\/([a-zA-Z0-9_-]{10,})/) || url.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
   return m ? 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w1920' : url;
 }
-function getVimeoID(url) { const m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/); return m ? m[1] : null; }
+function getVimeoID(url) { const m = (url||'').match(/vimeo\.com\/(?:video\/)?(\d+)/); return m ? m[1] : null; }
+// Unlisted Vimeo links carry a privacy hash (vimeo.com/ID/HASH or ?h=HASH) the
+// player requires — capture it so the embed isn't rejected as "private".
+function getVimeoHash(url) { const m = (url||'').match(/vimeo\.com\/\d+\/([a-zA-Z0-9]+)/) || (url||'').match(/[?&]h=([a-zA-Z0-9]+)/); return m ? m[1] : null; }
+// YouTube id from watch?v=, youtu.be/, /shorts/, /embed/, /live/ (and m./www.).
+function getYouTubeID(url) { const m = (url||'').match(/(?:youtube\.com\/(?:watch\?(?:[^&]*&)*v=|shorts\/|embed\/|live\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/); return m ? m[1] : null; }
 
 function mediaHTML(ad, square) {
   const imgURL = toDirectImage((ad.uploadedURL && ad.uploadedType === 'image') ? ad.uploadedURL : ad.mediaImg);
@@ -53,7 +67,7 @@ function mediaInner(ad) {
   var imgURL = toDirectImage((ad.uploadedURL && ad.uploadedType === 'image') ? ad.uploadedURL : (ad.mediaImg || ''));
   var vidURL = ad.mediaVideo || '';
   var uploadedVid = (ad.uploadedURL && ad.uploadedType === 'video') ? ad.uploadedURL : null;
-  if (imgURL) return '<img decoding="async" src="' + esc(imgURL) + '" style="width:100%;height:100%;object-fit:cover;display:block;" alt="" />';
+  if (imgURL) return '<img decoding="async" src="' + esc(imgURL) + '" style="width:100%;height:100%;object-fit:cover;display:block;" ' + IMG_ERR + ' alt="" />';
   // Linked/uploaded video fills the media box at the CHOSEN aspect ratio, the
   // same way an image does: a real <video> cover-crops to fill, and an iframe
   // embed fills the box while the provider's player handles any internal
@@ -74,21 +88,21 @@ function mediaInner(ad) {
   var drivePct = (DRIVE_SCALE * 100) + '%';
   var driveScale = 'position:absolute;top:0;left:0;width:' + drivePct + ';height:' + drivePct
     + ';transform:scale(' + (1 / DRIVE_SCALE) + ');transform-origin:top left;border:none;';
-  if (uploadedVid) return '<video src="' + uploadedVid + '" controls style="' + vidFill + '"></video>';
+  if (uploadedVid) return '<video src="' + esc(uploadedVid) + '" controls style="' + vidFill + '"></video>';
   if (vidURL) {
-    var yt = vidURL.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
-    if (yt) return '<iframe src="https://www.youtube.com/embed/' + yt[1] + '" frameborder="0" allowfullscreen style="' + frameFill + '"></iframe>';
+    var yt = getYouTubeID(vidURL);
+    if (yt) return '<iframe src="https://www.youtube.com/embed/' + yt + '" frameborder="0" allowfullscreen style="' + frameFill + '"></iframe>';
     var gd = getGDriveID(vidURL);
     if (gd) return '<div style="position:absolute;inset:0;overflow:hidden;"><iframe src="https://drive.google.com/file/d/' + gd + '/preview" frameborder="0" allowfullscreen allow="autoplay" style="' + driveScale + '"></iframe></div>';
     var vi = getVimeoID(vidURL);
-    if (vi) return '<iframe src="https://player.vimeo.com/video/' + vi + '" frameborder="0" allowfullscreen style="' + frameFill + '"></iframe>';
+    if (vi) { var vh = getVimeoHash(vidURL); return '<iframe src="https://player.vimeo.com/video/' + vi + (vh ? '?h=' + vh : '') + '" frameborder="0" allowfullscreen style="' + frameFill + '"></iframe>'; }
     return '<video src="' + esc(vidURL) + '" controls style="' + vidFill + '"></video>';
   }
   return null;
 }
 
 function mediaBox(ad, containerClass, phClass, phLabel) {
-  var ar = (ad.aspectRatio || '16:9').replace(':', '/');
+  var ar = safeAR(ad.aspectRatio, '16:9');
   var inner = mediaInner(ad);
   var ph = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;"><i class="ti ti-photo" style="font-size:28px;color:#ccc"></i><span style="font-size:13px;color:#ccc">' + phLabel + '</span></div>';
   return '<div class="' + containerClass + ' media-ar" style="aspect-ratio:' + ar + ';position:relative;overflow:hidden;">' + (inner || ph) + '</div>';
@@ -99,14 +113,14 @@ function storyMediaHTML(ad) {
   var vidURL = ad.mediaVideo || '';
   var uploadedVid = (ad.uploadedURL && ad.uploadedType === 'video') ? ad.uploadedURL : null;
   if (imgURL) return '<img class="story-bg" decoding="async" src="' + esc(imgURL) + '" alt="" />';
-  if (uploadedVid) return '<video class="story-bg" src="' + uploadedVid + '" autoplay muted loop playsinline></video>';
+  if (uploadedVid) return '<video class="story-bg" src="' + esc(uploadedVid) + '" autoplay muted loop playsinline></video>';
   if (vidURL) {
-    var yt = vidURL.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
-    if (yt) return '<div class="story-iframe-wrap"><iframe src="https://www.youtube.com/embed/' + yt[1] + '?autoplay=1&mute=1" frameborder="0" allowfullscreen allow="autoplay"></iframe></div>';
+    var yt = getYouTubeID(vidURL);
+    if (yt) return '<div class="story-iframe-wrap"><iframe src="https://www.youtube.com/embed/' + yt + '?autoplay=1&mute=1" frameborder="0" allowfullscreen allow="autoplay"></iframe></div>';
     var gd = getGDriveID(vidURL);
     if (gd) return '<div class="story-iframe-wrap"><iframe src="https://drive.google.com/file/d/' + gd + '/preview" frameborder="0" allow="autoplay"></iframe></div>';
     var vi = getVimeoID(vidURL);
-    if (vi) return '<div class="story-iframe-wrap"><iframe src="https://player.vimeo.com/video/' + vi + '?autoplay=1&muted=1" frameborder="0" allowfullscreen></iframe></div>';
+    if (vi) { var vh = getVimeoHash(vidURL); return '<div class="story-iframe-wrap"><iframe src="https://player.vimeo.com/video/' + vi + '?autoplay=1&muted=1' + (vh ? '&h=' + vh : '') + '" frameborder="0" allowfullscreen></iframe></div>'; }
     return '<video class="story-bg" src="' + esc(vidURL) + '" autoplay muted loop playsinline></video>';
   }
   return null;
@@ -136,14 +150,14 @@ var CAROUSEL_OK = { 'fb-feed':1, 'fb-post':1, 'ig-post':1, 'ig-feed-ad':1, 'inst
 // used in place of the single media box for carousel creatives.
 function carouselHTML(ad) {
   var slides = Array.isArray(ad.slides) ? ad.slides : [];
-  var ar = (ad.aspectRatio || '1:1').replace(':', '/');
+  var ar = safeAR(ad.aspectRatio, '1:1');
   if (!slides.length) {
     return '<div style="padding:0 12px;"><div style="aspect-ratio:' + ar + ';display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;background:#ececec;color:#aaa;border-radius:10px;"><i class="ti ti-carousel-horizontal" style="font-size:30px"></i><span style="font-size:13px">Add carousel slides</span></div></div>';
   }
   var cards = slides.map(function (s) {
     var img = toDirectImage(s.img || '');
     var media = img
-      ? '<img decoding="async" src="' + esc(img) + '" style="width:100%;height:100%;object-fit:cover;display:block;" alt="" />'
+      ? '<img decoding="async" src="' + esc(img) + '" style="width:100%;height:100%;object-fit:cover;display:block;" ' + IMG_ERR + ' alt="" />'
       : '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#ececec;color:#bbb;"><i class="ti ti-photo" style="font-size:26px"></i></div>';
     var bar = (s.headline || s.description || s.cta)
       ? '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:#f7f8fa;border-top:1px solid #e4e6eb;">'
@@ -234,7 +248,7 @@ export function renderMockup(ad: Ad): string {
 
   } else if (fmt === 'email') {
     const heroInner = mediaInner(ad);
-    const arCSS = (ad.aspectRatio || '16:9').replace(':', '/');
+    const arCSS = safeAR(ad.aspectRatio, '16:9');
     const heroMediaHTML = heroInner
       ? `<div style="aspect-ratio:${arCSS};overflow:hidden;border-radius:6px;margin-bottom:18px;position:relative;">${heroInner}</div>`
       : `<div class="email-hero-ph"><i class="ti ti-photo" style="font-size:26px"></i><span>Add image or video</span></div>`;
@@ -349,7 +363,7 @@ export function renderMockup(ad: Ad): string {
 
   } else if (fmt === 'native-infeed') {
     const inner = mediaInner(ad);
-    const ar = (ad.aspectRatio || '16:9').replace(':','/');
+    const ar = safeAR(ad.aspectRatio, '16:9');
     const mediaSect = inner
       ? `<div class="native-infeed-img" style="aspect-ratio:${ar};position:relative;">${inner}</div>`
       : `<div class="native-infeed-img"><div class="native-infeed-img-ph"><i class="ti ti-photo" style="font-size:28px"></i></div></div>`;
@@ -408,7 +422,7 @@ export function renderMockup(ad: Ad): string {
     </div></div>`;
 
   } else if (fmt === 'blog') {
-    var thumbAR = (ad.aspectRatio || '16:9').replace(':', '/');
+    var thumbAR = safeAR(ad.aspectRatio, '16:9');
     var thumbInner = mediaInner(ad);
     var thumb = thumbInner
       ? '<div style="aspect-ratio:' + thumbAR + ';position:relative;overflow:hidden;">' + thumbInner + '</div>'

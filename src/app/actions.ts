@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { DEFAULT_CONTACT_CAPS } from "@/lib/types";
 
-type ActionResult = { error?: string };
+// `warning` = the action SUCCEEDED with a caveat; callers should still refresh.
+type ActionResult = { error?: string; warning?: string };
 
 // Pragmatic email check, mirrored from settings/team/actions — enough to reject
 // empty/garbage before it becomes a junk allowlist row that can't be magic-linked.
@@ -96,12 +97,15 @@ export async function addClient(
       is_primary: true,
       invited_by: user?.id ?? null,
     });
-    // The client was created; a contact hiccup shouldn't undo that. Surface a
-    // soft warning so they can re-add the contact from the client page.
-    if (contactErr)
+    // The client was created; a contact hiccup shouldn't undo that. Revalidate
+    // first so the new client appears, then surface a soft warning (not an error,
+    // so the UI closes the modal instead of prompting a duplicate add).
+    if (contactErr) {
+      revalidatePath("/");
       return {
-        error: `Client created, but adding the contact failed (${contactErr.message}). Add it from the client page.`,
+        warning: `Client created, but adding the contact failed (${contactErr.message}). Add it from the client page.`,
       };
+    }
   }
 
   revalidatePath("/");

@@ -8,8 +8,13 @@ export default async function AuthError(props: {
   searchParams: Promise<{ next?: string }>;
 }) {
   const { next } = await props.searchParams;
-  // Only honour same-site relative paths to avoid an open-redirect.
-  const backTo = next && next.startsWith("/") ? next : "/";
+  // Only honour single-leading-slash same-site paths — reject protocol-relative
+  // (//evil.com) and backslash (/\evil) forms that would navigate off-site.
+  // Mirrors safeNext() in src/app/auth/callback/route.ts.
+  const backTo =
+    next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\")
+      ? next
+      : "/";
 
   return (
     <main className="mx-auto flex min-h-[60vh] w-full max-w-md flex-col items-center justify-center px-6 text-center">

@@ -25,14 +25,17 @@ export default async function TeamSettings() {
   // is present (getClaims reads it locally when possible — see src/app/page.tsx).
   const { data: claimsData } = await supabase.auth.getClaims();
   if (!claimsData?.claims) redirect("/login");
+  const userId = claimsData.claims.sub as string;
 
   // Membership and the pending-requests inbox are independent reads, so fetch
   // them together — one parallel batch instead of two serial cross-region hops.
+  // Filter membership to OUR row: RLS exposes every teammate, so an unfiltered
+  // .limit(1) would read an arbitrary member's role and mis-gate the owner UI.
   const [{ data: membership }, { data: requests }] = await Promise.all([
     supabase
       .from("agency_members")
       .select("agency_id, role")
-      .limit(1)
+      .eq("user_id", userId)
       .maybeSingle(),
     supabase
       .from("access_requests")

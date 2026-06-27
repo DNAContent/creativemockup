@@ -174,7 +174,9 @@ function AddClientModal({
     const res = await addClient(name, email, logo, brandName, brandLogo);
     setBusy(false);
     if (res.error) return toast(res.error, "error");
-    toast("Client added.", "success");
+    // A warning means the client WAS created (e.g. the contact insert failed) —
+    // still close + refresh so it appears, just surface the caveat.
+    toast(res.warning ?? "Client added.", res.warning ? "error" : "success");
     onAdded();
   }
 

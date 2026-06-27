@@ -57,6 +57,10 @@ export async function POST(req: NextRequest) {
     if (
       settings?.slack_enabled &&
       settings.slack_webhook_url &&
+      // Only ever POST to a real Slack webhook host — a member can set this URL
+      // (notification_settings_members RLS), so pin the host to avoid it being
+      // used as a blind SSRF probe to an internal address.
+      settings.slack_webhook_url.startsWith("https://hooks.slack.com/") &&
       (settings as Record<string, boolean>)[sFlag]
     ) {
       await sendSlack(settings.slack_webhook_url, msg);
