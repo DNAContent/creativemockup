@@ -63,12 +63,23 @@ function mediaInner(ad) {
   // wasn't 16:9.)
   var vidFill = 'width:100%;height:100%;object-fit:cover;display:block;';
   var frameFill = 'position:absolute;inset:0;width:100%;height:100%;border:none;';
+  // Google Drive's /preview player shows a chrome strip at the TOP only below a
+  // certain rendered size — and the feed cards are small (e.g. 400px), so a Drive
+  // clip gets a black top bar. Fix: render the iframe at N× the box, then scale
+  // it back down. Drive sees a large (chrome-free) viewport but it visually fills
+  // the small box — no crop, works at every box size/aspect. The own wrapper
+  // (overflow:hidden) clips sub-pixel overflow and covers call sites whose box
+  // doesn't set overflow:hidden (e.g. native-infeed).
+  var DRIVE_SCALE = 2;
+  var drivePct = (DRIVE_SCALE * 100) + '%';
+  var driveScale = 'position:absolute;top:0;left:0;width:' + drivePct + ';height:' + drivePct
+    + ';transform:scale(' + (1 / DRIVE_SCALE) + ');transform-origin:top left;border:none;';
   if (uploadedVid) return '<video src="' + uploadedVid + '" controls style="' + vidFill + '"></video>';
   if (vidURL) {
     var yt = vidURL.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
     if (yt) return '<iframe src="https://www.youtube.com/embed/' + yt[1] + '" frameborder="0" allowfullscreen style="' + frameFill + '"></iframe>';
     var gd = getGDriveID(vidURL);
-    if (gd) return '<iframe src="https://drive.google.com/file/d/' + gd + '/preview" frameborder="0" allowfullscreen allow="autoplay" style="' + frameFill + '"></iframe>';
+    if (gd) return '<div style="position:absolute;inset:0;overflow:hidden;"><iframe src="https://drive.google.com/file/d/' + gd + '/preview" frameborder="0" allowfullscreen allow="autoplay" style="' + driveScale + '"></iframe></div>';
     var vi = getVimeoID(vidURL);
     if (vi) return '<iframe src="https://player.vimeo.com/video/' + vi + '" frameborder="0" allowfullscreen style="' + frameFill + '"></iframe>';
     return '<video src="' + esc(vidURL) + '" controls style="' + vidFill + '"></video>';
