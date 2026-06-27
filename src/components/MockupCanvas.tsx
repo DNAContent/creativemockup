@@ -205,13 +205,12 @@ export default function MockupCanvas({
         ref={ref}
         srcDoc={SRC_DOC}
         onLoad={onLoad}
-        // Defense-in-depth: the preview is built from HTML strings, so sandbox it
-        // to a unique opaque origin (NO allow-same-origin) — even if some field
-        // ever injected markup, it couldn't reach the app's origin/session. The
-        // mockup script runs (allow-scripts) and talks to the parent only via
-        // postMessage('*'), which works across the opaque origin; popups/
-        // presentation keep embedded video players (YouTube/Drive/Vimeo) working.
-        sandbox="allow-scripts allow-popups allow-presentation"
+        // NOTE: deliberately NOT sandboxed. A sandbox (opaque origin) makes the
+        // same-site Tabler icon webfont a cross-origin request (CORS-blocked →
+        // tofu glyphs) and breaks the Drive/YouTube video embeds. The injection
+        // vector this would have hardened (a crafted aspect_ratio) is already
+        // closed at the source by safeAR() in renderMockup, so the preview stays
+        // un-sandboxed to keep fonts + embedded video working.
         title={`Mockup preview${creative.headline ? `: ${creative.headline}` : ""}`}
         style={{
           width: "100%",
